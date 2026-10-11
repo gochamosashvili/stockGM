@@ -5,7 +5,12 @@ import fs from 'node:fs';
 
 const CONTACT = process.env.SEC_CONTACT || '';
 if (!CONTACT) { console.error('Set the SEC_CONTACT secret (your e-mail): SEC requires it.'); process.exit(1); }
-const UA = { 'User-Agent': `STOCK dashboard ${CONTACT}` };
+// SEC wants "Name Surname email@example.com"; a bare e-mail gets a short app name in front.
+const UA = {
+  'User-Agent': CONTACT.includes(' ') ? CONTACT.trim() : `STOCK-dashboard ${CONTACT.trim()}`,
+  'Accept': 'application/json',
+  'Accept-Encoding': 'gzip, deflate',
+};
 const EXTRA_CIKS = { XOM: [34088] };
 
 const REV = ['Revenues', 'RevenueFromContractWithCustomerExcludingAssessedTax', 'RevenuesNetOfInterestExpense',
@@ -17,16 +22,23 @@ const DEBT_CUR = ['LongTermDebtCurrent', 'DebtCurrent', 'LongTermDebtAndCapitalL
 const CASH = ['CashAndCashEquivalentsAtCarryingValue', 'CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents'];
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+let refused = 0;
 async function getJson(url) {
   for (let i = 0; i < 3; i++) {
     const r = await fetch(url, { headers: UA });
     if (r.status === 404) return null;
     if (r.ok) return r.json();
-    if (r.status === 403 && i === 2) throw new Error(`SEC refused ${url}: HTTP 403`);
-    await sleep(2000 * (i + 1));
+    const body = (await r.text()).replace(/\s+/g, ' ').slice(0, 200);
+    console.log(`HTTP ${r.status} for ${url} (try ${i + 1}): ${body}`);
+    if (r.status === 403 && ++refused >= 6) {
+      console.error('SEC keeps answering 403 (forbidden). Check the SEC_CONTACT secret: it must be "Name Surname email@example.com".');
+      process.exit(1);
+    }
+    await sleep(3000 * (i + 1));
   }
   return null;
 }
+console.log(`User-Agent sent to SEC: ${UA['User-Agent'].replace(/[^@\s]+@/, '***@')}`);
 
 const sp = JSON.parse(fs.readFileSync('data/sp500.json', 'utf8'));
 const wl = JSON.parse(fs.readFileSync('data/watchlist.json', 'utf8'));
@@ -34,7 +46,7 @@ const tickers = [...new Set([...sp.map((r) => r.Symbol), ...wl.map((r) => r.Symb
 const spCik = Object.fromEntries(sp.map((r) => [r.Symbol, Number(r.CIK)]));
 
 // Ticker -> CIKs (S&P list first, then SEC's own ticker file)
-const secTickers = await getJson('https://www.sec.gov/files/company_tickers.json');
+const secTickers = await getJson('https://www.sec.gov/files/company_tickers.json'); // only needed for companies outside the S&P 500 list
 const secMap = {};
 for (const v of Object.values(secTickers || {})) { const t = String(v.ticker).toUpperCase(); if (!secMap[t]) secMap[t] = v.cik_str; }
 const ciksOf = {}, wanted = new Set();
@@ -65,7 +77,7 @@ for (const [t, p] of jobs) {
   const m = new Map();
   for (const d of (j && j.data) || []) if (wanted.has(d.cik)) m.set(d.cik, { val: d.val, end: d.end });
   cache[`${t}|${p}`] = m;
-  await sleep(150); // SEC allows at most 10 requests per second
+  await sleep(250); // SEC allows at most 10 requests per second
 }
 
 const get = (t, p, ciks) => { const m = cache[`${t}|${p}`]; if (!m) return null; for (const c of ciks) if (m.has(c)) return m.get(c); return null; };
