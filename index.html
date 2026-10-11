@@ -1,0 +1,1277 @@
+<!doctype html>
+<html lang="ka">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Recovery Terminal</title>
+<meta name="description" content="S&amp;P 500 აღდგენის სტრატეგიის სკრინერი">
+<meta name="theme-color" content="#0a111d">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="STOCK">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<style>
+:root { --font-anthropic-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Georgian", "Noto Sans", sans-serif; --cds-dur-slow: .3s; color-scheme: dark; }
+html, body { margin: 0; background: #050a12; color: #e7edf6; -webkit-text-size-adjust: 100%; }
+body { padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left)); }
+.rt-status { margin-top: 4px; display: flex; gap: 8px; align-items: center; justify-content: flex-end; flex-wrap: wrap; }
+.rt-refresh { background: #132036; border: 1px solid #1e2b40; color: #e7edf6; border-radius: 6px; padding: 3px 8px; cursor: pointer; font: inherit; font-size: 12px; }
+.rt-setup { border-color: #1f4573; }
+.rt-setup-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.rt-setup-in { flex: 1 1 260px; width: auto; }
+@media (max-width: 620px) { .rt-src { text-align: left; width: 100%; } .rt-status { justify-content: flex-start; } }
+</style>
+<script src="config.js"></script>
+<script src="vendor/d3.min.js"></script>
+<script src="runtime.js"></script>
+</head>
+<body>
+<div id="dash-root">
+<style>
+#dash-root { --dash-gutter: 0px; }
+.rt {
+  --rt-bg: #0a111d; --rt-panel: #0f1828; --rt-panel2: #132036; --rt-border: #1e2b40; --rt-fg: #e7edf6; --rt-muted: #8a97ab;
+  --rt-green: #2fd39b; --rt-red: #f0525c; --rt-blue: #3b8bf6; --rt-amber: #f5a524; --rt-lime: #a3d65c;
+  --color-panel: var(--rt-panel); --color-bg: var(--rt-bg); --color-border-line: var(--rt-border); --color-fg: var(--rt-fg); --color-fg-muted: var(--rt-muted);
+  --color-bad: var(--rt-red); --color-ok: var(--rt-green); --color-warn: var(--rt-amber);
+  --cds-chart-grid: #1a2638; --cds-chart-axis: #2a3a52; --cds-chart-muted: #3a4a63; --cds-chart-reference: #5a6b85;
+  --cds-surface-popover: #16233a; --cds-border: #2a3a52; --cds-text-secondary: var(--rt-muted); --cds-shadow-popover: 0 8px 24px rgba(0, 0, 0, .45);
+  container-type: inline-size;
+  background: var(--rt-bg); color: var(--rt-fg); font-family: var(--font-anthropic-sans); font-variant-numeric: tabular-nums;
+  border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 12px; font-size: 13px; line-height: 1.35;
+}
+.rt * { box-sizing: border-box; }
+.rt [hidden], .rt-page[hidden] { display: none !important; }
+.rt button { font: inherit; }
+.rt-card { background: var(--rt-panel); border: 1px solid var(--rt-border); border-radius: 10px; padding: 12px 14px; min-width: 0; position: relative; }
+.rt .rt-h { font-size: 14px; font-weight: 600; margin: 0; color: var(--rt-fg); }
+.rt-card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+.rt-muted { color: var(--rt-muted); }
+.rt-up { color: var(--rt-green); }
+.rt-down { color: var(--rt-red); }
+
+/* Top bar */
+.rt-top { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; padding: 2px 4px 10px; border-bottom: 1px solid var(--rt-border); }
+.rt-brand { display: flex; align-items: center; gap: 10px; }
+.rt-name { font-weight: 700; letter-spacing: .04em; font-size: 16px; }
+.rt-tag { color: var(--rt-muted); font-size: 12px; }
+.rt-nav { display: flex; gap: 4px; flex-wrap: wrap; flex: 1 1 auto; }
+.rt-nav button { background: none; border: 1px solid transparent; color: var(--rt-muted); padding: 7px 12px; border-radius: 8px; cursor: pointer; }
+.rt-nav button:hover { color: var(--rt-fg); }
+.rt-nav button[aria-selected=true] { background: #15304f; border-color: #1f4573; color: var(--rt-fg); }
+.rt-src { color: var(--rt-muted); font-size: 12px; text-align: right; }
+.rt-src b { color: var(--rt-fg); font-weight: 500; }
+
+/* KPI strip */
+.rt-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; }
+.rt-kpi { display: flex; flex-direction: column; gap: 4px; min-height: 92px; overflow: hidden; }
+.rt-kl { font-size: 12px; color: var(--rt-muted); }
+.rt-kl.rt-acc { color: #7fb3ff; }
+.rt-kv { font-size: 24px; font-weight: 600; line-height: 1.1; }
+.rt-kd { font-size: 12px; color: var(--rt-muted); }
+.rt-kspark { position: absolute; right: 12px; top: 12px; width: 38%; height: 36px; }
+.rt-kpi-idx .rt-kv, .rt-kpi-idx .rt-kd { position: relative; z-index: 1; }
+
+/* Body layout */
+.rt-body { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 12px; align-items: start; }
+.rt-main { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.rt-charts { display: grid; grid-template-columns: 1.1fr 1fr 1fr; gap: 12px; }
+.rt-mid { display: grid; grid-template-columns: minmax(0, 1fr) 345px; gap: 12px; align-items: start; }
+.rt-bottom { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+@container (max-width: 1700px) { .rt-wide { display: none; } }
+@container (max-width: 1250px) { .rt-mid { grid-template-columns: 1fr; } .rt-bottom { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@container (max-width: 980px) { .rt-body { grid-template-columns: 1fr; } .rt-charts { grid-template-columns: 1fr; } }
+@container (max-width: 620px) { .rt-bottom { grid-template-columns: 1fr; } .rt-hide-sm { display: none; } .rt-kspark { position: static; width: 100%; height: 30px; margin-top: 4px; } }
+
+/* Filters */
+.rt-side { display: flex; flex-direction: column; gap: 8px; }
+.rt-side-head { display: flex; justify-content: space-between; align-items: center; }
+.rt-link { background: none; border: 0; color: var(--rt-muted); cursor: pointer; font-size: 12px; padding: 2px 4px; }
+.rt-link:hover { color: var(--rt-fg); }
+.rt-sec { color: #4fa3ff; font-size: 12.5px; font-weight: 600; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--rt-border); }
+.rt-sec.first { border-top: 0; margin-top: 2px; padding-top: 0; }
+.rt-frow { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.rt-frow > span { color: var(--rt-fg); }
+.rt-frow.rt-subf > span { color: var(--rt-muted); font-size: 12px; }
+.rt-num { width: 62px; background: var(--rt-panel2); border: 1px solid var(--rt-border); color: var(--rt-fg); border-radius: 6px; padding: 4px 6px; text-align: right; font: inherit; }
+.rt-rng { width: 100%; accent-color: var(--rt-blue); margin: 2px 0 0; }
+.rt-rng-l { display: flex; justify-content: space-between; color: var(--rt-muted); font-size: 11px; margin-top: -2px; }
+.rt-swrow { display: flex; align-items: center; justify-content: space-between; gap: 10px; cursor: pointer; }
+.rt-sw { appearance: none; -webkit-appearance: none; width: 34px; height: 19px; border-radius: 999px; background: #2a3a52; position: relative; cursor: pointer; flex: 0 0 auto; margin: 0; transition: background .15s; }
+.rt-sw::after { content: ""; position: absolute; top: 2px; left: 2px; width: 15px; height: 15px; border-radius: 50%; background: #e7edf6; transition: left .15s; }
+.rt-sw:checked { background: var(--rt-green); }
+.rt-sw:checked::after { left: 17px; }
+.rt-sw:disabled { opacity: .35; }
+.rt-sel { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.rt-sel select { background: var(--rt-panel2); border: 1px solid var(--rt-border); color: var(--rt-fg); border-radius: 6px; padding: 5px 6px; font: inherit; min-width: 0; width: 140px; }
+.rt-note { color: var(--rt-muted); font-size: 11.5px; line-height: 1.4; }
+.rt-btn { background: var(--rt-green); color: #06281c; border: 0; border-radius: 8px; padding: 9px 12px; font-weight: 600; cursor: pointer; }
+.rt-btn:hover { filter: brightness(1.08); }
+.rt-btn.rt-ghost { background: transparent; color: var(--rt-fg); border: 1px solid var(--rt-border); font-weight: 500; }
+
+/* Charts */
+.rt-chart { width: 100%; min-height: 160px; }
+.rt-chart svg, .rt-d-chart svg, .cp-chart svg { display: block; overflow: visible; }
+.rt-tick { font-size: 11px; fill: var(--rt-muted); }
+.rt-val { font-size: 11px; fill: var(--rt-fg); }
+.rt-donut-wrap { display: flex; gap: 12px; align-items: center; }
+.rt-donut { flex: 0 0 150px; height: 150px; }
+.rt-legend { flex: 1 1 auto; display: grid; grid-template-columns: auto 1fr auto auto; gap: 4px 8px; align-items: center; min-width: 0; font-size: 12px; }
+.rt-legend button { display: contents; cursor: pointer; }
+.rt-legend .sw { width: 9px; height: 9px; border-radius: 50%; }
+.rt-legend .nm { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--rt-fg); text-align: left; }
+.rt-legend .ct, .rt-legend .pc { color: var(--rt-muted); text-align: right; }
+.rt-legend .is-sel .nm { font-weight: 600; text-decoration: underline; }
+
+/* Table */
+.rt-search { background: var(--rt-panel2); border: 1px solid var(--rt-border); color: var(--rt-fg); border-radius: 8px; padding: 6px 10px; font: inherit; width: 200px; max-width: 100%; }
+.rt-tablewrap { overflow-x: auto; }
+.rt-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.rt-table th { text-align: left; color: var(--rt-muted); font-weight: 500; font-size: 11.5px; padding: 0; border-bottom: 1px solid var(--rt-border); white-space: nowrap; }
+.rt-table th button { background: none; border: 0; color: inherit; padding: 8px 6px; cursor: pointer; width: 100%; text-align: inherit; font-size: inherit; }
+.rt-table th[aria-sort] button { color: var(--rt-fg); }
+.rt-table th.n, .rt-table td.n { text-align: right; }
+.rt-table td { padding: 7px 6px; border-bottom: 1px solid #172235; white-space: nowrap; }
+.rt-table td.rt-sect { max-width: 130px; overflow: hidden; text-overflow: ellipsis; }
+.rt-table td.co { max-width: 170px; overflow: hidden; text-overflow: ellipsis; }
+.rt-table tbody tr { cursor: pointer; }
+.rt-table tbody tr:hover td { background: #121e31; }
+.rt-table tbody tr.is-picked td { background: #15263f; }
+.rt-table td:first-child { font-weight: 700; }
+.rt-sect { color: #7fb3ff; font-size: 11.5px; }
+.rt-badge { display: inline-block; min-width: 34px; text-align: center; padding: 2px 6px; border-radius: 6px; font-weight: 700; font-size: 11.5px; color: #071a12; }
+.rt-b4 { background: var(--rt-green); } .rt-b3 { background: var(--rt-lime); } .rt-b2 { background: var(--rt-amber); } .rt-b1, .rt-b0 { background: var(--rt-red); color: #fff; }
+.rt-trend { display: inline-flex; align-items: center; gap: 6px; }
+.rt-trend svg { display: block; }
+.rt-pager { display: flex; align-items: center; gap: 4px; margin-top: 10px; flex-wrap: wrap; }
+.rt-pager button { background: none; border: 1px solid transparent; color: var(--rt-muted); border-radius: 6px; min-width: 28px; height: 28px; cursor: pointer; }
+.rt-pager button[aria-current=true] { border-color: var(--rt-border); background: var(--rt-panel2); color: var(--rt-fg); }
+.rt-pager button:disabled { opacity: .3; cursor: default; }
+.rt-showing { margin-left: auto; color: var(--rt-muted); font-size: 12px; }
+
+/* Detail panel */
+.rt-detail { display: flex; flex-direction: column; gap: 10px; }
+.rt-d-body { display: flex; flex-direction: column; gap: 10px; }
+.rt-d-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.rt-d-sym { font-size: 20px; font-weight: 700; }
+.rt-star { color: var(--rt-amber); font-size: 11.5px; border: 1px solid #5a4210; border-radius: 999px; padding: 0 7px; }
+.rt-d-sub { color: var(--rt-muted); font-size: 12px; margin-top: -6px; }
+.rt-d-price { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.rt-big { font-size: 26px; font-weight: 700; }
+.rt-ranges { display: flex; gap: 4px; flex-wrap: wrap; }
+.rt-ranges button { background: var(--rt-panel2); border: 1px solid var(--rt-border); color: var(--rt-muted); border-radius: 6px; padding: 3px 9px; cursor: pointer; font-size: 12px; }
+.rt-ranges button[aria-pressed=true] { background: #1d4ed8; border-color: #2563eb; color: #fff; }
+.rt-d-chart { min-height: 190px; }
+.rt-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; font-size: 11.5px; margin: 0; }
+.rt-stats div { display: flex; justify-content: space-between; gap: 6px; }
+.rt-stats dt { color: var(--rt-muted); margin: 0; }
+.rt-stats dd { margin: 0; text-align: right; white-space: nowrap; }
+.rt-stats dt { white-space: nowrap; }
+.rt-score { background: var(--rt-panel2); border: 1px solid var(--rt-border); border-radius: 8px; padding: 10px 12px; }
+.rt-score-head { display: flex; justify-content: space-between; align-items: baseline; }
+.rt-score-v { font-size: 22px; font-weight: 700; color: var(--rt-green); }
+.rt-segs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 3px; margin: 8px 0; }
+.rt-segs span { height: 7px; border-radius: 3px; background: #26354d; }
+.rt-segs span.on { background: var(--rt-green); }
+.rt-segs span.off { background: var(--rt-red); }
+.rt-checks { display: flex; flex-direction: column; gap: 4px; font-size: 12px; }
+.rt-checks div { display: flex; gap: 8px; align-items: baseline; }
+.rt-checks i { font-style: normal; width: 14px; flex: 0 0 auto; text-align: center; }
+.rt-d-empty { color: var(--rt-muted); }
+
+/* Bottom */
+.rt-mini { width: 100%; border-collapse: collapse; font-size: 12px; counter-reset: rk; }
+.rt-mini th { text-align: left; color: var(--rt-muted); font-weight: 500; font-size: 11px; padding: 4px 6px; border-bottom: 1px solid var(--rt-border); }
+.rt-mini td { padding: 6px; border-bottom: 1px solid #172235; white-space: nowrap; }
+.rt-mini td.co { max-width: 120px; overflow: hidden; text-overflow: ellipsis; }
+.rt-mini th.n, .rt-mini td.n { text-align: right; }
+.rt-mini tbody tr { cursor: pointer; }
+.rt-mini tbody tr:hover td { background: #121e31; }
+.rt-ranked tbody tr td:first-child::before { counter-increment: rk; content: counter(rk); color: var(--rt-muted); font-weight: 400; display: inline-block; width: 14px; margin-right: 4px; }
+.rt-scroll { max-height: 220px; overflow: auto; }
+.rt-perf { display: flex; flex-direction: column; gap: 5px; font-size: 12px; }
+.rt-perf-row { display: grid; grid-template-columns: 1fr 80px 52px; gap: 8px; align-items: center; cursor: pointer; }
+.rt-perf-row .nm { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rt-perf-bar { height: 9px; position: relative; }
+.rt-perf-bar span { position: absolute; top: 0; height: 9px; border-radius: 2px; }
+.rt-perf-bar::before { content: ""; position: absolute; left: 50%; top: -2px; bottom: -2px; width: 1px; background: #2a3a52; }
+.rt-calc { display: grid; grid-template-columns: 1fr auto; gap: 6px 10px; align-items: center; font-size: 12px; }
+.rt-calc .rt-num { width: 90px; }
+.rt-calc-out { margin-top: 10px; display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; font-size: 12px; }
+.rt-calc-out b { font-size: 16px; color: var(--rt-green); text-align: right; }
+.rt-calc-out span:nth-child(even) { text-align: right; }
+
+/* Shared */
+.sp-tip { position: absolute; pointer-events: none; background: var(--cds-surface-popover); border: 1px solid var(--cds-border); border-radius: 8px; box-shadow: var(--cds-shadow-popover); padding: 5px 8px; font-size: 12px; white-space: nowrap; z-index: 3; color: var(--rt-fg); }
+.sp-tip .k { color: var(--rt-muted); }
+.sp-fail { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: inherit; color: var(--rt-muted); font-size: 12px; }
+.sp-fail::before { content: ""; width: .375rem; height: .375rem; border-radius: 50%; background: var(--rt-red); }
+.sp-none { display: flex; align-items: center; justify-content: center; min-height: inherit; color: var(--rt-muted); font-size: 12px; text-align: center; }
+[data-dash-source-state=refreshing] { opacity: .5; transition: opacity var(--cds-dur-slow); }
+[data-dash-source-state=empty] { color: transparent; }
+.rt-page { display: flex; flex-direction: column; gap: 12px; }
+
+/* Company page */
+.cp { display: flex; flex-direction: column; gap: 12px; }
+.cp-bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
+.cp-bar label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--rt-muted); min-width: 0; }
+.cp-pick { flex: 2 1 18rem; }
+.cp-search-l { flex: 1 1 12rem; }
+.cp-bar select, .cp-bar input { background: var(--rt-panel2); border: 1px solid var(--rt-border); color: var(--rt-fg); border-radius: 8px; padding: 7px 10px; font: inherit; width: 100%; min-width: 0; }
+.cp-nav { display: flex; gap: 6px; }
+.cp-pos { color: var(--rt-muted); font-size: 12px; margin: -4px 0 0; }
+.cp .cp-title { font-size: 24px; font-weight: 700; margin: 0; }
+.cp-head-sub { color: var(--rt-muted); margin-top: 4px; }
+.cp-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.cp-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 12px; }
+.cp-chart { min-height: 320px; }
+.cp-chart-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.cp-dl { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; margin: 0; font-size: 12.5px; }
+.cp-dl dt { color: var(--rt-muted); }
+.cp-dl dd { margin: 0; overflow-wrap: anywhere; }
+.cp-links { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.cp-links a { color: var(--rt-fg); border: 1px solid var(--rt-border); border-radius: 8px; padding: 5px 10px; text-decoration: none; font-size: 12px; }
+.cp-empty { color: var(--rt-muted); }
+</style>
+
+<div class="rt">
+  <header class="rt-top">
+    <div class="rt-brand">
+      <svg width="34" height="30" viewBox="0 0 34 30" aria-hidden="true"><rect x="2" y="18" width="5" height="10" rx="1" fill="#2fd39b"/><rect x="10" y="12" width="5" height="16" rx="1" fill="#2fd39b"/><rect x="18" y="15" width="5" height="13" rx="1" fill="#2fd39b"/><rect x="26" y="6" width="5" height="22" rx="1" fill="#2fd39b"/><path d="M3 14 L12 7 L19 10 L31 2" stroke="#e7edf6" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <div><div class="rt-name">RECOVERY TERMINAL</div><div class="rt-tag">S&amp;P 500 · აღდგენის სტრატეგია</div></div>
+    </div>
+    <nav class="rt-nav" role="tablist" aria-label="ნავიგაცია">
+      <button type="button" role="tab" data-page="overview" aria-selected="true">მიმოხილვა</button>
+      <button type="button" data-jump="rt-table">სკრინერი</button>
+      <button type="button" data-jump="rt-top5">საუკეთესო 5</button>
+      <button type="button" data-jump="rt-watch">ჩემი სია</button>
+      <button type="button" role="tab" data-page="company" aria-selected="false">ანალიზი</button>
+      <button type="button" data-jump="rt-risk">რისკის მართვა</button>
+    </nav>
+    <div class="rt-src">ფასები: <b>Google Finance</b><br>ფინანსები: <b>SEC EDGAR</b></div>
+  </header>
+
+  <div class="rt-page" id="overview">
+    <section class="rt-kpis" id="rt-kpis">
+      <div class="rt-card rt-kpi rt-kpi-idx">
+        <div class="rt-kl">S&amp;P 500</div>
+        <div class="rt-kv"><span class="kx" data-source="prices" data-field="price" data-where="Symbol=INDEXSP:.INX" data-fmt="num">—</span></div>
+        <div class="rt-kd"><span class="kx" data-source="prices" data-field="day_change" data-where="Symbol=INDEXSP:.INX" data-fmt="pct">—</span> დღეში · <span class="kx" data-source="prices" data-field="from_high" data-where="Symbol=INDEXSP:.INX" data-fmt="pct">—</span> მაქს.-დან</div>
+        <div class="rt-kspark" data-source="prices"></div>
+      </div>
+      <div class="rt-card rt-kpi" data-source="companies"><div class="rt-kl">კომპანიების სამყარო</div><div class="rt-kv k-univ">—</div><div class="rt-kd k-univ-l">—</div></div>
+      <div class="rt-card rt-kpi" data-source="companies"><div class="rt-kl rt-acc">ფილტრებს აკმაყოფილებს</div><div class="rt-kv k-pass" style="color:#4fa3ff">—</div><div class="rt-kd k-pass-l">—</div></div>
+      <div class="rt-card rt-kpi" data-source="companies"><div class="rt-kl">საშ. ვარდნა 52-კვ. მაქსიმუმიდან</div><div class="rt-kv k-dd rt-down">—</div><div class="rt-kd">ფილტრებში მოხვედრილებზე</div></div>
+      <div class="rt-card rt-kpi" data-source="companies"><div class="rt-kl">საშ. ზრდა 52-კვ. მინიმუმიდან</div><div class="rt-kv k-up rt-up">—</div><div class="rt-kd">ფილტრებში მოხვედრილებზე</div></div>
+      <div class="rt-card rt-kpi" data-source="companies"><div class="rt-kl">წამყვანი სექტორი (ფილტრებში)</div><div class="rt-kv k-sec" style="font-size:18px">—</div><div class="rt-kd k-sec-l">—</div></div>
+    </section>
+
+    <div class="rt-body">
+      <aside class="rt-card rt-side" id="rt-filters" aria-label="ფილტრები">
+        <div class="rt-side-head"><h2 class="rt-h">სკრინინგის ფილტრები</h2><button type="button" class="rt-link rt-reset" title="სტრატეგიის საწყისი ფილტრები">↺ საწყისი</button></div>
+
+        <div class="rt-sec first">ფასის კრიტერიუმები</div>
+        <div class="rt-frow"><span>მინ. ვარდნა 52-კვ. მაქს.-დან, %</span><input class="rt-num" type="number" min="0" max="100" step="1" data-p="dd_min" placeholder="—" aria-label="მინიმალური ვარდნა მაქსიმუმიდან, %"></div>
+        <input class="rt-rng" type="range" min="0" max="80" step="1" data-p="dd_min" aria-label="მინიმალური ვარდნა მაქსიმუმიდან">
+        <div class="rt-rng-l"><span>0%</span><span>80%</span></div>
+        <div class="rt-frow rt-subf"><span>მაქს. ვარდნა, %</span><input class="rt-num" type="number" min="0" max="100" step="1" data-p="dd_max" placeholder="—" aria-label="მაქსიმალური ვარდნა, %"></div>
+        <div class="rt-frow"><span>მაქს. ზრდა 52-კვ. მინ.-დან, %</span><input class="rt-num" type="number" min="0" step="1" data-p="up_max" placeholder="∞" aria-label="მაქსიმალური ზრდა მინიმუმიდან, %"></div>
+        <input class="rt-rng" type="range" min="0" max="200" step="5" data-p="up_max" aria-label="მაქსიმალური ზრდა მინიმუმიდან">
+        <div class="rt-rng-l"><span>0%</span><span>200%+</span></div>
+        <div class="rt-frow rt-subf"><span>მინ. ზრდა, %</span><input class="rt-num" type="number" min="0" step="1" data-p="up_min" placeholder="—" aria-label="მინიმალური ზრდა, %"></div>
+
+        <div class="rt-sec">მაქსიმუმთან მისვლა</div>
+        <label class="rt-swrow"><span>ერთდღიანი ნახტომის გამორიცხვა</span><input type="checkbox" class="rt-sw" data-sw="gradual"></label>
+        <div class="rt-frow rt-subf"><span>უდიდესი დღე ზრდის ≤ %</span><input class="rt-num" type="number" min="0" max="100" step="1" data-p="share_max" placeholder="—" aria-label="უდიდესი დღის წილი ზრდაში, %"></div>
+        <div class="rt-frow rt-subf"><span>ზრდა გრძელდებოდა ≥ კვირა</span><input class="rt-num" type="number" min="0" max="52" step="1" data-p="weeks_min" placeholder="—" aria-label="ზრდის ხანგრძლივობა, კვირა"></div>
+
+        <div class="rt-sec">ფუნდამენტური</div>
+        <label class="rt-swrow"><span>შემოსავალი, ფულადი ნაკადი, ვალი: გაუარესება არ ჩანს</span><input type="checkbox" class="rt-sw" data-sw="health"></label>
+        <label class="rt-swrow rt-subf"><span class="rt-muted">მონაცემის არმქონეებიც</span><input type="checkbox" class="rt-sw" data-sw="nodata"></label>
+        <div class="rt-note">გაფრთხილება: შემოსავალი ≥10%-ით შემცირდა; ფულადი ნაკადი ≤0 ან ≥40%-ით დაეცა; წმინდა ვალი &gt; 8× ფულად ნაკადზე, ან ვალი ≥30%-ით გაიზარდა და &gt; 3×.</div>
+
+        <div class="rt-sec">სხვა</div>
+        <label class="rt-swrow"><span>მხოლოდ ჩემი სია</span><input type="checkbox" class="rt-sw" data-sw="mine"></label>
+        <label class="rt-sel"><span>სექტორი</span><select class="rt-sector" data-source="sp500"></select></label>
+        <label class="rt-sel"><span>ქვე-ინდუსტრია</span><select class="rt-subind" data-source="sp500"></select></label>
+        <button type="button" class="rt-btn rt-ghost rt-clear" style="margin-top:8px">ყველა ფილტრის მოხსნა</button>
+      </aside>
+
+      <div class="rt-main">
+        <section class="rt-charts">
+          <div class="rt-card" id="rt-sectors">
+            <div class="rt-card-head"><h2 class="rt-h">სექტორები (ფილტრებში)</h2></div>
+            <div class="rt-donut-wrap"><div class="rt-donut" data-source="companies"></div><div class="rt-legend" data-source="companies"></div></div>
+          </div>
+          <div class="rt-card" id="rt-hist-dd">
+            <div class="rt-card-head"><h2 class="rt-h">ვარდნა 52-კვ. მაქსიმუმიდან</h2></div>
+            <div class="rt-chart" data-source="companies"></div><div class="sp-tip" hidden></div>
+          </div>
+          <div class="rt-card" id="rt-hist-up">
+            <div class="rt-card-head"><h2 class="rt-h">ზრდა 52-კვ. მინიმუმიდან</h2></div>
+            <div class="rt-chart" data-source="companies"></div><div class="sp-tip" hidden></div>
+          </div>
+        </section>
+
+        <section class="rt-mid">
+          <div class="rt-card" id="rt-table">
+            <div class="rt-card-head"><h2 class="rt-h">გაფილტრული კომპანიები (<span class="rt-count">—</span>)</h2><input class="rt-search" type="search" placeholder="ძებნა: ტიკერი ან სახელი" aria-label="ძებნა"></div>
+            <div class="rt-tablewrap">
+              <table class="rt-table" data-source="companies" data-row-key="Symbol">
+                <thead><tr>
+                  <th data-field="Symbol"><button type="button">ტიკერი</button></th>
+                  <th data-field="Security"><button type="button">კომპანია</button></th>
+                  <th data-field="sector" class="rt-hide-sm"><button type="button">სექტორი</button></th>
+                  <th data-field="price" class="n"><button type="button">ფასი</button></th>
+                  <th data-field="high_52w" class="n rt-hide-sm rt-wide"><button type="button">52კ მაქს.</button></th>
+                  <th data-field="low_52w" class="n rt-hide-sm rt-wide"><button type="button">52კ მინ.</button></th>
+                  <th data-field="from_high" class="n"><button type="button">ვარდნა მაქს.-დან</button></th>
+                  <th data-field="from_low" class="n"><button type="button">ზრდა მინ.-დან</button></th>
+                  <th data-field="score" class="n"><button type="button">ქულა</button></th>
+                  <th data-field="ret_1y" class="n"><button type="button">ტრენდი, 1 წ.</button></th>
+                </tr></thead>
+                <tbody></tbody>
+              </table>
+            </div>
+            <div class="rt-pager"><button type="button" class="pg-prev" aria-label="წინა გვერდი">‹</button><span class="rt-pages"></span><button type="button" class="pg-next" aria-label="შემდეგი გვერდი">›</button><span class="rt-showing"></span></div>
+          </div>
+
+          <aside class="rt-card rt-detail" id="rt-detail">
+            <div class="rt-d-empty" hidden>ფილტრებს არცერთი კომპანია არ შეესაბამება.</div>
+            <div class="rt-d-body">
+              <div class="rt-d-head"><span class="rt-d-sym ov-d" data-f="Symbol">—</span><span class="ov-d" data-f="Security">—</span><span class="rt-star" hidden>★ ჩემი სია</span></div>
+              <div class="rt-d-sub"><span class="ov-d" data-f="sector">—</span> · <span class="ov-d" data-f="sub_industry">—</span></div>
+              <div class="rt-d-price"><span class="rt-big ov-d" data-f="price" data-fmt="price">—</span><span class="ov-d ov-chg" data-f="day_change" data-fmt="pct">—</span><span class="rt-muted">ბოლო დღე</span></div>
+              <div class="rt-ranges" role="group" aria-label="პერიოდი"><button type="button" data-r="1m">1 თვე</button><button type="button" data-r="3m">3 თვე</button><button type="button" data-r="6m">6 თვე</button><button type="button" data-r="1y">1 წელი</button><button type="button" data-r="2y">2 წელი</button></div>
+              <div class="rt-d-chart" data-source="history"></div><div class="sp-tip" hidden></div>
+              <dl class="rt-stats">
+                <div><dt>52კ მაქს.</dt><dd class="ov-d" data-f="high_52w" data-fmt="price">—</dd></div>
+                <div><dt>ვარდნა</dt><dd class="ov-d rt-down" data-f="from_high" data-fmt="pct">—</dd></div>
+                <div><dt>52კ მინ.</dt><dd class="ov-d" data-f="low_52w" data-fmt="price">—</dd></div>
+                <div><dt>ზრდა</dt><dd class="ov-d rt-up" data-f="from_low" data-fmt="pct">—</dd></div>
+                <div><dt>1 წლის ცვლ.</dt><dd class="ov-d" data-f="ret_1y" data-fmt="pct">—</dd></div>
+                <div><dt>ზრდა მაქს.-მდე</dt><dd><span class="ov-d" data-f="runup_weeks">—</span> კვ.</dd></div>
+                <div><dt>1 დღის წილი</dt><dd class="ov-d" data-f="jump_share" data-fmt="pct0">—</dd></div>
+                <div><dt>შემოსავალი, წ/წ</dt><dd class="ov-d" data-f="rev_growth_fy" data-fmt="pct">—</dd></div>
+                <div><dt>ფულადი ნაკადი</dt><dd class="ov-d" data-f="ocf_fy" data-fmt="money">—</dd></div>
+                <div><dt>წმ. ვალი / ფ.ნ.</dt><dd class="ov-d" data-f="nd_ocf" data-fmt="x">—</dd></div>
+              </dl>
+              <div class="rt-score">
+                <div class="rt-score-head"><span>სტრატეგიის ქულა</span><span><span class="rt-score-v ov-d" data-f="score">—</span><span class="rt-muted"> / 4</span></span></div>
+                <div class="rt-segs"><span></span><span></span><span></span><span></span></div>
+                <div class="rt-checks">
+                  <div><i class="ck" data-k="chk_drop"></i><span>ვარდნა 52-კვ. მაქს.-დან ≥ 30%</span></div>
+                  <div><i class="ck" data-k="chk_rise"></i><span>ზრდა 52-კვ. მინ.-დან ≤ 50%</span></div>
+                  <div><i class="ck" data-k="chk_gradual"></i><span>მაქსიმუმი თანდათან: დღე ≤ 25%, ≥ 8 კვ.</span></div>
+                  <div><i class="ck" data-k="chk_fin"></i><span>ფინანსებში გაუარესება არ ჩანს</span></div>
+                </div>
+              </div>
+              <button type="button" class="rt-btn rt-open-cp">სრული ანალიზი →</button>
+            </div>
+          </aside>
+        </section>
+
+        <section class="rt-bottom">
+          <div class="rt-card" id="rt-top5">
+            <div class="rt-card-head"><h2 class="rt-h">საუკეთესო 5 კანდიდატი</h2></div>
+            <table class="rt-mini rt-ranked" data-source="companies" data-row-key="Symbol">
+              <thead><tr><th data-field="Symbol">ტიკერი</th><th data-field="Security">კომპანია</th><th data-field="from_high" class="n">ვარდნა</th><th data-field="score" class="n">ქულა</th></tr></thead>
+              <tbody></tbody>
+            </table>
+            <div class="rt-note" style="margin-top:6px">ფილტრებში მოხვედრილებიდან: ქულით, შემდეგ ყველაზე დიდი ვარდნით.</div>
+          </div>
+          <div class="rt-card" id="rt-watch">
+            <div class="rt-card-head"><h2 class="rt-h">ჩემი სია: ქულა 4/4 (<span class="w-count">—</span>)</h2></div>
+            <div class="rt-scroll">
+              <table class="rt-mini" data-source="companies" data-row-key="Symbol">
+                <thead><tr><th data-field="Symbol">ტიკერი</th><th data-field="Security">კომპანია</th><th data-field="from_high" class="n">ვარდნა</th><th data-field="score" class="n">ქულა</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="rt-card" id="rt-perf">
+            <div class="rt-card-head"><h2 class="rt-h">სექტორების შედეგი (1 წელი)</h2></div>
+            <div class="rt-perf" data-source="sector_perf"></div>
+            <div class="rt-note" style="margin-top:6px">S&amp;P 500-ის წევრების საშუალო ცვლილება ბოლო 12 თვეში.</div>
+          </div>
+          <div class="rt-card" id="rt-risk">
+            <div class="rt-card-head"><h2 class="rt-h">რისკის კალკულატორი</h2></div>
+            <div class="rt-calc">
+              <span>ანგარიში, $</span><input class="rt-num rc-acc" type="number" min="0" step="100" value="10000" aria-label="ანგარიშის ზომა">
+              <span>რისკი ერთ გარიგებაზე, %</span><input class="rt-num rc-risk" type="number" min="0" step="0.1" value="1" aria-label="რისკი, %">
+              <span>სტოპ-ლოსი, %</span><input class="rt-num rc-stop" type="number" min="0.1" step="0.5" value="10" aria-label="სტოპ-ლოსი, %">
+            </div>
+            <div class="rt-calc-out">
+              <span>პოზიციის ზომა</span><b class="rc-pos">—</b>
+              <span class="rc-sh-l">აქციების რაოდენობა</span><span class="rc-sh">—</span>
+              <span>მაქს. ზარალი</span><span class="rc-loss">—</span>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <div class="rt-page" id="company" hidden></div>
+</div>
+
+<template id="tpl-company">
+  <div class="cp">
+    <div class="rt-card cp-bar">
+      <label class="cp-pick">აირჩიე კომპანია<select class="cp-select" aria-label="კომპანიის არჩევა"></select></label>
+      <label class="cp-search-l">ძებნა<input class="cp-find" type="search" placeholder="ტიკერი ან სახელი, Enter — გახსნა" aria-label="კომპანიის ძებნა"></label>
+      <div class="cp-nav"><button type="button" class="rt-btn rt-ghost cp-prev">← წინა</button><button type="button" class="rt-btn rt-ghost cp-next">შემდეგი →</button></div>
+    </div>
+    <p class="cp-pos"></p>
+    <div class="cp-empty" hidden>ფილტრებს არცერთი კომპანია არ შეესაბამება.</div>
+    <div class="cp-body cp">
+      <header>
+        <h2 class="cp-title"><span class="cp-d" data-f="Symbol">—</span> · <span class="cp-d" data-f="Security">—</span></h2>
+        <div class="cp-head-sub"><span class="cp-d" data-f="sector">—</span> · <span class="cp-d" data-f="sub_industry">—</span> <span class="rt-star cp-star" hidden>★ ჩემი სია</span></div>
+      </header>
+      <section class="cp-kpis">
+        <div class="rt-card rt-kpi"><div class="rt-kl">ფასი</div><div class="rt-kv cp-d" data-f="price" data-fmt="price">—</div><div class="rt-kd"><span class="cp-d" data-f="day_change" data-fmt="pct">—</span> ბოლო დღე</div></div>
+        <div class="rt-card rt-kpi"><div class="rt-kl">52-კვ. მაქსიმუმიდან</div><div class="rt-kv rt-down cp-d" data-f="from_high" data-fmt="pct">—</div></div>
+        <div class="rt-card rt-kpi"><div class="rt-kl">52-კვ. მინიმუმიდან</div><div class="rt-kv rt-up cp-d" data-f="from_low" data-fmt="pct">—</div></div>
+        <div class="rt-card rt-kpi"><div class="rt-kl">1 წლის ცვლილება</div><div class="rt-kv cp-d" data-f="ret_1y" data-fmt="pct">—</div></div>
+        <div class="rt-card rt-kpi"><div class="rt-kl">სტრატეგიის ქულა</div><div class="rt-kv"><span class="cp-d" data-f="score">—</span><span class="rt-muted" style="font-size:14px"> / 4</span></div><div class="rt-kd cp-d" data-f="health">—</div></div>
+      </section>
+      <section class="rt-card">
+        <div class="cp-chart-head"><h2 class="rt-h">ფასი, ბოლო 2 წელი</h2><div class="rt-ranges cp-ranges" role="group" aria-label="პერიოდი"><button type="button" data-r="3m">3 თვე</button><button type="button" data-r="6m">6 თვე</button><button type="button" data-r="1y">1 წელი</button><button type="button" data-r="2y">2 წელი</button></div></div>
+        <p class="rt-note" style="margin:0 0 8px">დღიური დახურვა. დაჩრდილული: ზრდა 12 თვის მინიმუმიდან 52-კვირიან მაქსიმუმამდე; ▲ მაქსიმუმი; ● უდიდესი ერთდღიანი ზრდა.</p>
+        <div class="cp-chart" data-source="history"></div>
+        <div class="sp-tip" hidden></div>
+      </section>
+      <section class="cp-grid">
+        <div class="rt-card">
+          <h2 class="rt-h" style="margin-bottom:8px">ფასის ცვლილება</h2>
+          <table class="rt-mini cp-ret" data-source="history_stats" data-row-key="period">
+            <thead><tr><th data-field="period">პერიოდი</th><th data-field="change" class="n">ცვლილება</th><th data-field="from_date" class="n">თარიღიდან</th></tr></thead>
+            <tbody></tbody>
+          </table>
+          <dl class="cp-dl" style="margin-top:10px">
+            <dt>2 წლის მაქსიმუმი</dt><dd><span class="cp-r" data-f="high_2y" data-fmt="price">—</span> · <span class="cp-r" data-f="high_2y_date">—</span></dd>
+            <dt>2 წლის მინიმუმი</dt><dd><span class="cp-r" data-f="low_2y" data-fmt="price">—</span> · <span class="cp-r" data-f="low_2y_date">—</span></dd>
+            <dt>უდიდესი ვარდნა</dt><dd><span class="cp-r" data-f="max_drawdown" data-fmt="pct">—</span> (<span class="cp-r" data-f="drawdown_from">—</span> → <span class="cp-r" data-f="drawdown_to">—</span>)</dd>
+            <dt>წლიური მერყეობა</dt><dd class="cp-r" data-f="volatility" data-fmt="pct0">—</dd>
+          </dl>
+        </div>
+        <div class="rt-card">
+          <h2 class="rt-h" style="margin-bottom:8px">მაქსიმუმთან მისვლა</h2>
+          <dl class="cp-dl">
+            <dt>მაქსიმუმის დღე</dt><dd class="cp-d" data-f="high_date">—</dd>
+            <dt>52-კვ. მაქსიმუმი</dt><dd class="cp-d" data-f="high_52w" data-fmt="price">—</dd>
+            <dt>ზრდა მაქსიმუმამდე</dt><dd><span class="cp-d" data-f="runup_weeks">—</span> კვირა (<span class="cp-d" data-f="runup_days">—</span> სავაჭრო დღე)</dd>
+            <dt>უდიდესი 1 დღე</dt><dd><span class="cp-d" data-f="max_day_gain" data-fmt="pct">—</span> · <span class="cp-d" data-f="max_day_date">—</span></dd>
+            <dt>მისი წილი ზრდაში</dt><dd class="cp-d" data-f="jump_share" data-fmt="pct0">—</dd>
+            <dt>52-კვ. მინიმუმი</dt><dd class="cp-d" data-f="low_52w" data-fmt="price">—</dd>
+          </dl>
+        </div>
+        <div class="rt-card">
+          <h2 class="rt-h" style="margin-bottom:4px">ფინანსები (SEC)</h2>
+          <p class="rt-note cp-hflags" style="margin:0 0 8px"></p>
+          <dl class="cp-dl">
+            <dt>შემოსავალი, ფისკ. წელი</dt><dd><span class="cp-d" data-f="rev_fy" data-fmt="money">—</span> · <span class="cp-d" data-f="rev_growth_fy" data-fmt="pct">—</span> · <span class="cp-d" data-f="fy_end">—</span></dd>
+            <dt>შემოსავალი, ბოლო კვარტალი</dt><dd><span class="cp-d" data-f="rev_q" data-fmt="money">—</span> · <span class="cp-d" data-f="rev_growth_q" data-fmt="pct">—</span></dd>
+            <dt>საოპერაციო ფულადი ნაკადი</dt><dd><span class="cp-d" data-f="ocf_fy" data-fmt="money">—</span> · <span class="cp-d" data-f="ocf_growth" data-fmt="pct">—</span></dd>
+            <dt>ვალი</dt><dd><span class="cp-d" data-f="debt" data-fmt="money">—</span> · <span class="cp-d" data-f="debt_growth" data-fmt="pct">—</span></dd>
+            <dt>წმინდა ვალი / ფ.ნ.</dt><dd class="cp-d" data-f="nd_ocf" data-fmt="x">—</dd>
+          </dl>
+        </div>
+        <div class="rt-card">
+          <h2 class="rt-h" style="margin-bottom:8px">კომპანია</h2>
+          <dl class="cp-dl">
+            <dt>შტაბ-ბინა</dt><dd class="cp-d" data-f="hq">—</dd>
+            <dt>დაარსდა</dt><dd class="cp-d" data-f="founded">—</dd>
+            <dt>ინდექსში დამატდა</dt><dd class="cp-d" data-f="date_added">—</dd>
+          </dl>
+          <div class="cp-links"><a class="cp-sec" target="_blank" rel="noopener noreferrer">SEC ანგარიშები ↗</a><a class="cp-gf" target="_blank" rel="noopener noreferrer">Google Finance ↗</a></div>
+        </div>
+      </section>
+    </div>
+  </div>
+</template>
+
+<script>
+// ---------- Loaders ----------
+dash.loader('prices', {
+  description: 'The sheet’s first row names the columns; prices like "1,234.56" become numbers, percents like "-12.34%" become fractions (-0.1234), dates and the 1-year trend list stay as text; "#N/A" and blanks become empty.',
+  fn: ({ answer }) => {
+    const a = typeof answer === 'string' ? JSON.parse(answer) : answer;
+    if (a && a.error) throw new Error(typeof a.error === 'string' ? a.error : (a.error.message || 'Google Sheets returned an error'));
+    const values = (a && a.values) || [];
+    if (!values.length) throw new Error('No values in the answer (keys: ' + Object.keys(a || {}).join(', ') + ')');
+    const num = (s) => {
+      if (s == null || s === '' || String(s).startsWith('#')) return null;
+      const t = String(s).replace(/,/g, '');
+      if (t.endsWith('%')) { const n = Number(t.slice(0, -1)); return Number.isFinite(n) ? n / 100 : null; }
+      const n = Number(t);
+      return Number.isFinite(n) ? n : null;
+    };
+    const txt = (s) => (s == null || s === '' || String(s).startsWith('#') ? null : String(s));
+    const columns = ['Symbol', 'price', 'high_52w', 'low_52w', 'from_high', 'from_low', 'high_date', 'runup_days', 'max_day_gain', 'max_day_date', 'jump_share', 'spark', 'ret_1y', 'day_change'];
+    const rows = values.slice(1).filter((r) => r && r[0]).map((r) => ({
+      Symbol: String(r[0]), price: num(r[1]), high_52w: num(r[2]), low_52w: num(r[3]), from_high: num(r[4]), from_low: num(r[5]),
+      high_date: txt(r[6]), runup_days: num(r[7]), max_day_gain: num(r[8]), max_day_date: txt(r[9]), jump_share: num(r[10]),
+      spark: txt(r[11]), ret_1y: num(r[12]), day_change: num(r[13]),
+    }));
+    return { columns, rows };
+  },
+});
+
+dash.loader('history', {
+  description: 'One sheet row: its first cell is the ticker (kept as meta), its last cell (column O) holds "date|close" pairs separated by ";". Each pair becomes a row (date as text, close as a number).',
+  fn: ({ answer }) => {
+    const a = typeof answer === 'string' ? JSON.parse(answer) : answer;
+    if (a && a.error) throw new Error(typeof a.error === 'string' ? a.error : (a.error.message || 'Google Sheets returned an error'));
+    const row = (a && a.values && a.values[0]) || [];
+    if (!row.length) throw new Error('No values in the answer (keys: ' + Object.keys(a || {}).join(', ') + ')');
+    const cell = String(row[14] || '');
+    const data = cell.split(';').map((pair) => { const [date, c] = pair.split('|'); return { date, close: Number(c) }; })
+      .filter((r) => /^\d{4}-\d{2}-\d{2}$/.test(r.date || '') && Number.isFinite(r.close));
+    return { data, columns: ['date', 'close'], meta: [{ label: 'Ticker', value: String(row[0] || '') }, { label: 'Sheet range', value: String((a && a.range) || '') }] };
+  },
+});
+
+dash.loader('fundamentals_live', {
+  description: 'The Fundamentals tab, refreshed twice a day from SEC by the Apps Script: first row names the columns, values ($ millions) stay as text like the file snapshot; an empty tab gives no rows.',
+  fn: ({ answer }) => {
+    const a = typeof answer === 'string' ? JSON.parse(answer) : answer;
+    if (a && a.error) throw new Error(typeof a.error === 'string' ? a.error : (a.error.message || 'Google Sheets returned an error'));
+    const values = (a && a.values) || [];
+    const head = (values[0] || []).map(String);
+    const columns = ['Symbol', 'rev_fy', 'rev_fy_prev', 'fy_end', 'rev_q', 'rev_q_prev', 'q_end', 'ocf_fy', 'ocf_fy_prev', 'ocf_fy_end', 'debt', 'debt_prev', 'cash', 'bs_date'];
+    const idx = columns.map((c) => head.indexOf(c));
+    const updated = head.indexOf('updated') >= 0 && values[1] ? String(values[1][head.indexOf('updated')] || '') : '';
+    const rows = values.slice(1).filter((r) => r && r[0]).map((r) => {
+      const o = {};
+      columns.forEach((c, i) => { const v = idx[i] >= 0 ? r[idx[i]] : ''; o[c] = v == null ? '' : String(v).replace(/,/g, ''); });
+      return o;
+    });
+    return { columns, rows, meta: [{ label: 'Updated', value: updated }] };
+  },
+});
+
+// ---------- Calculations ----------
+dash.calc('companies', {
+  inputs: ['sp500', 'watchlist', 'prices', 'fundamentals', 'fundamentals_live'],
+  title: 'კომპანიები: ფასი, ისტორია, ფინანსები, ქულა',
+  description: 'S&P 500 წევრები და ჩემი სიის დანარჩენი კომპანიები; ფასი, 52 კვირის დიაპაზონი და ზრდის ისტორია Google Finance-იდან, ფინანსები SEC-დან ($ მლნ). ქულა (0–4): ვარდნა მაქსიმუმიდან ≥30%; ზრდა მინიმუმიდან ≤50%; უდიდესი დღე ზრდის ≤25% და ზრდა ≥8 კვირა; ფინანსებში გაფრთხილება არ არის.',
+  fn: (sp500, watchlist, prices, fundamentals, fundamentals_live) => {
+    const num = (v) => (v === '' || v == null ? null : Number(v));
+    const gr = (a, b) => (a != null && b != null && b > 0 ? a / b - 1 : null);
+    const yn = (c) => (c == null ? '' : c ? 'Yes' : 'No');
+    const px = new Map(prices.map((p) => [p.Symbol, p]));
+    const fu = new Map(fundamentals.map((f) => [f.Symbol, f]));
+    // The twice-daily SEC refresh wins wherever it has data; the snapshot fills the rest.
+    for (const f of fundamentals_live || []) {
+      if (['rev_fy', 'rev_q', 'ocf_fy', 'debt', 'cash'].some((k) => f[k] !== '' && f[k] != null)) fu.set(f.Symbol, f);
+    }
+    const mine = new Set(watchlist.map((w) => w.Symbol));
+    const inSp = new Set(sp500.map((r) => r.Symbol));
+    const base = sp500.map((r) => ({
+      Symbol: r.Symbol, Security: r.Security, sector: r['GICS Sector'], sub_industry: r['GICS Sub-Industry'],
+      hq: r['Headquarters Location'], date_added: r['Date added'], founded: r.Founded, cik: r.CIK,
+      in_sp500: 'Yes', my_list: mine.has(r.Symbol) ? 'Yes' : 'No',
+    }));
+    for (const w of watchlist) {
+      if (!inSp.has(w.Symbol)) base.push({ Symbol: w.Symbol, Security: w.Name, sector: '', sub_industry: '', hq: '', date_added: '', founded: '', cik: '', in_sp500: 'No', my_list: 'Yes' });
+    }
+    return base.map((r) => {
+      const p = px.get(r.Symbol) || {};
+      const f = fu.get(r.Symbol) || {};
+      let revFy = num(f.rev_fy), revFyP = num(f.rev_fy_prev);
+      const revQ = num(f.rev_q), revQP = num(f.rev_q_prev), ocf = num(f.ocf_fy), ocfP = num(f.ocf_fy_prev);
+      const debt = num(f.debt), debtP = num(f.debt_prev), cash = num(f.cash);
+      // A yearly revenue below operating cash flow, or below two quarters, is a partial tag: treat as missing.
+      if (revFy != null && ((ocf != null && revFy < ocf) || (revQ != null && revFy < 2 * revQ))) { revFy = null; revFyP = null; }
+      const fin = r.sector === 'Financials';
+      const rev_growth_fy = gr(revFy, revFyP), rev_growth_q = gr(revQ, revQP), ocf_growth = gr(ocf, ocfP);
+      const net_debt = debt != null ? debt - (cash ?? 0) : null;
+      const nd_ocf = net_debt != null && ocf != null && ocf > 0 ? net_debt / ocf : null;
+      const debt_growth = gr(debt, debtP);
+      const flags = [];
+      if ((rev_growth_fy != null && rev_growth_fy <= -0.10) || (rev_growth_q != null && rev_growth_q <= -0.10)) flags.push('revenue');
+      if (!fin && ocf != null && (ocf <= 0 || (ocf_growth != null && ocf_growth <= -0.40))) flags.push('cash_flow');
+      if (!fin && ((nd_ocf != null && nd_ocf > 8) || (debt_growth != null && debt_growth >= 0.30 && nd_ocf != null && nd_ocf > 3))) flags.push('debt');
+      const hasData = (revFy != null || revQ != null) && (fin || ocf != null);
+      const health = flags.length ? 'გაფრთხილება' : hasData ? 'OK' : 'მონაცემი არ არის';
+      const runup_weeks = p.runup_days != null ? Math.round(p.runup_days / 5) : null;
+      const cDrop = p.from_high == null ? null : -p.from_high >= 0.30;
+      const cRise = p.from_low == null ? null : p.from_low <= 0.50;
+      const cGrad = p.jump_share == null || runup_weeks == null ? null : p.jump_share <= 0.25 && runup_weeks >= 8;
+      const cFin = health === 'OK' ? true : health === 'გაფრთხილება' ? false : null;
+      return {
+        ...r,
+        price: p.price ?? null, high_52w: p.high_52w ?? null, low_52w: p.low_52w ?? null, from_high: p.from_high ?? null, from_low: p.from_low ?? null,
+        day_change: p.day_change ?? null, ret_1y: p.ret_1y ?? null, spark: p.spark ?? null,
+        high_date: p.high_date ?? null, runup_days: p.runup_days ?? null, runup_weeks,
+        max_day_gain: p.max_day_gain ?? null, max_day_date: p.max_day_date ?? null, jump_share: p.jump_share ?? null,
+        rev_fy: revFy, rev_growth_fy, fy_end: revFy != null ? (f.fy_end || null) : null, rev_q: revQ, rev_growth_q,
+        ocf_fy: ocf, ocf_growth, debt, debt_growth, net_debt, nd_ocf, health, health_flags: flags.join(','),
+        chk_drop: yn(cDrop), chk_rise: yn(cRise), chk_gradual: yn(cGrad), chk_fin: yn(cFin),
+        score: [cDrop, cRise, cGrad, cFin].filter((c) => c === true).length,
+      };
+    });
+  },
+});
+
+dash.calc('sector_perf', {
+  inputs: ['companies'],
+  title: 'სექტორების 1 წლის შედეგი',
+  description: 'თითო GICS სექტორში S&P 500-ის წევრების ფასის ცვლილების საშუალო ბოლო 12 თვეში.',
+  fn: (companies) => {
+    const g = new Map();
+    for (const r of companies) {
+      if (r.in_sp500 !== 'Yes' || typeof r.ret_1y !== 'number') continue;
+      if (!g.has(r.sector)) g.set(r.sector, []);
+      g.get(r.sector).push(r.ret_1y);
+    }
+    return [...g].map(([sector, v]) => ({ sector, ret_1y: v.reduce((a, b) => a + b, 0) / v.length, companies: v.length }));
+  },
+});
+
+dash.calc('history_stats', {
+  inputs: ['history'],
+  title: 'ფასის ცვლილება პერიოდებით',
+  description: 'ბოლო დახურვა შედარებული 1, 3, 6, 12 და 24 თვის წინანდელ დახურვასთან (იმ დღეს ან უახლოეს წინა სავაჭრო დღეს).',
+  fn: (history) => {
+    if (history.length < 2) return [];
+    const last = history[history.length - 1];
+    const periods = [['1 თვე', 1], ['3 თვე', 3], ['6 თვე', 6], ['1 წელი', 12], ['2 წელი', 24]];
+    return periods.map(([period, months]) => {
+      const d = new Date(last.date + 'T00:00:00Z');
+      d.setUTCMonth(d.getUTCMonth() - months);
+      const target = d.toISOString().slice(0, 10);
+      let base = null;
+      for (const r of history) { if (r.date <= target) base = r; else break; }
+      return { period, from_date: base ? base.date : null, from_close: base ? base.close : null, change: base ? last.close / base.close - 1 : null };
+    });
+  },
+});
+
+dash.calc('history_risk', {
+  inputs: ['history'],
+  title: '2 წლის დიაპაზონი და რისკი',
+  description: '2 წლის მაქსიმალური და მინიმალური დახურვა, უდიდესი ვარდნა პიკიდან ძირამდე და წლიური მერყეობა (დღიური ლოგ-ცვლილებების სტანდარტული გადახრა × √252).',
+  fn: (history) => {
+    if (history.length < 2) return [];
+    let peak = history[0], mdd = 0, from = null, to = null, hi = history[0], lo = history[0];
+    for (const r of history) {
+      if (r.close > peak.close) peak = r;
+      const dd = r.close / peak.close - 1;
+      if (dd < mdd) { mdd = dd; from = peak.date; to = r.date; }
+      if (r.close > hi.close) hi = r;
+      if (r.close < lo.close) lo = r;
+    }
+    const rets = [];
+    for (let i = 1; i < history.length; i++) rets.push(Math.log(history[i].close / history[i - 1].close));
+    const mean = rets.reduce((a, b) => a + b, 0) / rets.length;
+    const sd = Math.sqrt(rets.reduce((a, b) => a + (b - mean) ** 2, 0) / (rets.length - 1));
+    return [{ high_2y: hi.close, high_2y_date: hi.date, low_2y: lo.close, low_2y_date: lo.date, max_drawdown: mdd, drawdown_from: from, drawdown_to: to, volatility: sd * Math.sqrt(252), days: history.length }];
+  },
+});
+</script>
+
+<script>
+const $ = (s, el = document) => el.querySelector(s);
+const $$ = (s, el = document) => [...el.querySelectorAll(s)];
+const fmt = d3.format(',');
+const fNum = (v) => (typeof v === 'number' ? d3.format(',.2f')(v) : '—');
+const fPrice = (v) => (typeof v === 'number' ? '$' + d3.format(',.2f')(v) : '—');
+const fPct = (v) => (typeof v === 'number' ? (v > 0 ? '+' : '') + d3.format('.1%')(v) : '—');
+const fPct0 = (v) => (typeof v === 'number' ? d3.format('.0%')(v) : '—');
+const fMoney = (v) => (typeof v !== 'number' ? '—' : Math.abs(v) >= 1000 ? '$' + d3.format(',.1f')(v / 1000) + ' მლრდ' : '$' + d3.format(',.0f')(v) + ' მლნ');
+const enc = (s) => String(s).replace(/%/g, '%25').replace(/&/g, '%26').replace(/=/g, '%3D');
+const FLAG_KA = { revenue: 'შემოსავალი ≥10%-ით შემცირდა', cash_flow: 'ფულადი ნაკადი ≤ 0 ან ≥40%-ით დაეცა', debt: 'ვალი მაღალია ან სწრაფად იზრდება' };
+const SECTOR_KA = {
+  'Information Technology': 'საინფორმაციო ტექნოლოგიები', 'Health Care': 'ჯანდაცვა', 'Financials': 'ფინანსები',
+  'Industrials': 'მრეწველობა', 'Consumer Discretionary': 'არაძირითადი სამომხმარებლო', 'Consumer Staples': 'ძირითადი სამომხმარებლო',
+  'Utilities': 'კომუნალური', 'Real Estate': 'უძრავი ქონება', 'Materials': 'მასალები', 'Communication Services': 'კომუნიკაციები', 'Energy': 'ენერგეტიკა',
+};
+const SECTOR_COLORS = ['#3b8bf6', '#8b5cf6', '#f0525c', '#f5a524', '#2fd39b', '#e7edf6', '#22b8cf', '#ec4899', '#a3d65c', '#94a3b8', '#fb923c', '#64748b'];
+const OUTSIDE = 'S&P-ს გარეთ';
+const GREEN = '#2fd39b', RED = '#f0525c';
+const fmtVal = (fm, v) => (fm === 'price' ? fPrice(v) : fm === 'num' ? fNum(v) : fm === 'pct' ? fPct(v) : fm === 'pct0' ? fPct0(v) : fm === 'money' ? fMoney(v) : fm === 'x' ? d3.format('.1f')(v) + '×' : String(v));
+
+function fillMarks(scope, selector, source, row, where) {
+  $$(selector, scope).forEach((el) => {
+    const v = row ? row[el.dataset.f] : null;
+    if (row && v !== '' && v != null) {
+      el.setAttribute('data-source', source);
+      el.setAttribute('data-field', el.dataset.f);
+      if (where) el.setAttribute('data-where', where); else el.setAttribute('data-row', '0');
+      el.textContent = fmtVal(el.dataset.fmt, v);
+      if (el.dataset.f === 'ret_1y' || el.dataset.f === 'day_change') { el.classList.toggle('rt-up', v > 0); el.classList.toggle('rt-down', v < 0); }
+    } else {
+      el.removeAttribute('data-source'); el.removeAttribute('data-field'); el.removeAttribute('data-where'); el.removeAttribute('data-row');
+      el.textContent = '—';
+    }
+  });
+}
+
+function tipper(card) {
+  const tip = card ? $('.sp-tip', card) : null;
+  return {
+    show(ev, lines) {
+      if (!tip) return;
+      tip.replaceChildren(...lines.map((t, i) => { const d = document.createElement('div'); if (i === 0) d.className = 'k'; d.textContent = t; return d; }));
+      tip.hidden = false;
+      const cb = card.getBoundingClientRect();
+      let x = ev.clientX - cb.left + 12, y = ev.clientY - cb.top + 12;
+      const tw = tip.offsetWidth, th = tip.offsetHeight;
+      if (x + tw > cb.width - 4) x = ev.clientX - cb.left - tw - 12;
+      if (y + th > cb.height - 4) y = ev.clientY - cb.top - th - 12;
+      tip.style.left = Math.max(4, x) + 'px';
+      tip.style.top = Math.max(4, y) + 'px';
+    },
+    hide() { if (tip) tip.hidden = true; },
+  };
+}
+function fail(el) { el.replaceChildren(); const s = document.createElement('div'); s.className = 'sp-fail'; s.textContent = 'Failed to load'; el.append(s); }
+function note(el, text) { el.replaceChildren(); const s = document.createElement('div'); s.className = 'sp-none'; s.textContent = text; el.append(s); }
+const parseSpark = (s) => (s ? s.split(',').map(Number).filter(Number.isFinite) : []);
+function sparkSvg(vals, w, h, color, area) {
+  const ns = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(ns, 'svg');
+  svg.setAttribute('width', w); svg.setAttribute('height', h); svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+  if (vals.length < 2) return svg;
+  const x = d3.scaleLinear([0, vals.length - 1], [1, w - 1]);
+  const y = d3.scaleLinear(d3.extent(vals), [h - 2, 2]);
+  if (area) {
+    const a = document.createElementNS(ns, 'path');
+    a.setAttribute('d', d3.area().x((d, i) => x(i)).y0(h).y1((d) => y(d))(vals));
+    a.setAttribute('fill', color); a.setAttribute('opacity', '0.15');
+    svg.append(a);
+  }
+  const p = document.createElementNS(ns, 'path');
+  p.setAttribute('d', d3.line().x((d, i) => x(i)).y((d) => y(d))(vals));
+  p.setAttribute('fill', 'none'); p.setAttribute('stroke', color); p.setAttribute('stroke-width', '1.6'); p.setAttribute('stroke-linejoin', 'round');
+  svg.append(p);
+  return svg;
+}
+
+// ---------- State and controls ----------
+let page = 'overview';
+let sort = { f: 'score', dir: -1 };
+let pageNo = 1;
+let filterSig = '';
+let ovRange = '1y';
+let cpRange = '2y';
+let cpQuery = '';
+let cpSig = '';
+let cpMounted = false;
+let lastSt = null;
+const PAGE_SIZE = 10;
+const NUM_FIELDS = new Set(['price', 'high_52w', 'low_52w', 'from_high', 'from_low', 'score', 'ret_1y']);
+
+const side = $('#rt-filters');
+$$('.rt-num[data-p]', side).forEach((el) => {
+  el.addEventListener('change', () => {
+    const v = el.value.trim() === '' ? null : Number(el.value);
+    if (v === null || (Number.isFinite(v) && v >= 0)) dash.setParams({ [el.dataset.p]: v, pick: null });
+  });
+  el.addEventListener('blur', () => { const v = dash.params()[el.dataset.p]; el.value = v ?? ''; });
+});
+$$('.rt-rng[data-p]', side).forEach((el) => {
+  const num = $(`.rt-num[data-p="${el.dataset.p}"]`, side);
+  el.addEventListener('input', () => { num.value = el.dataset.p === 'up_max' && Number(el.value) >= 200 ? '' : el.value; });
+  el.addEventListener('change', () => {
+    let v = Number(el.value);
+    if (el.dataset.p === 'up_max' && v >= 200) v = null;
+    if (el.dataset.p === 'dd_min' && v === 0) v = null;
+    dash.setParams({ [el.dataset.p]: v, pick: null });
+  });
+});
+$$('.rt-sw', side).forEach((el) => el.addEventListener('change', () => {
+  const p = dash.params();
+  const k = el.dataset.sw;
+  if (k === 'gradual') dash.setParams(el.checked ? { share_max: p.share_max ?? 25, weeks_min: p.weeks_min ?? 8, pick: null } : { share_max: null, weeks_min: null, pick: null });
+  if (k === 'health') dash.setParams({ health: el.checked ? ($('.rt-sw[data-sw="nodata"]', side).checked ? 'ok_nodata' : 'ok') : null, pick: null });
+  if (k === 'nodata' && p.health) dash.setParams({ health: el.checked ? 'ok_nodata' : 'ok', pick: null });
+  if (k === 'mine') dash.setParams({ mine: el.checked, pick: null });
+}));
+$('.rt-sector', side).addEventListener('change', (e) => dash.setParams({ sector: e.target.value || null, sub: null, pick: null }));
+$('.rt-subind', side).addEventListener('change', (e) => dash.setParams({ sub: e.target.value || null, pick: null }));
+$('.rt-reset', side).addEventListener('click', () => { $('.rt-search').value = ''; dash.resetParams(); });
+$('.rt-clear', side).addEventListener('click', () => dash.setParams({ dd_min: null, dd_max: null, up_min: null, up_max: null, share_max: null, weeks_min: null, health: null, sector: null, sub: null, q: null, pick: null }));
+
+let qTimer;
+$('.rt-search').addEventListener('input', (e) => { clearTimeout(qTimer); qTimer = setTimeout(() => dash.setParams({ q: e.target.value.trim() || null }), 200); });
+$$('#rt-table th button').forEach((b) => b.addEventListener('click', () => {
+  const f = b.closest('th').dataset.field;
+  sort = sort.f === f ? { f, dir: -sort.dir } : { f, dir: NUM_FIELDS.has(f) && f !== 'from_high' ? -1 : 1 };
+  draw();
+}));
+$('#rt-table tbody').addEventListener('click', (e) => { const tr = e.target.closest('tr[data-key]'); if (tr) dash.setParams({ pick: tr.dataset.key }); });
+$('#rt-table tbody').addEventListener('dblclick', (e) => { const tr = e.target.closest('tr[data-key]'); if (tr) { dash.setParams({ pick: tr.dataset.key }); showPage('company'); } });
+$$('#rt-top5 tbody, #rt-watch tbody').forEach((tb) => tb.addEventListener('click', (e) => { const tr = e.target.closest('tr[data-key]'); if (tr) dash.setParams({ pick: tr.dataset.key }); }));
+$('.pg-prev').addEventListener('click', () => { pageNo = Math.max(1, pageNo - 1); draw(); });
+$('.pg-next').addEventListener('click', () => { pageNo += 1; draw(); });
+$('.rt-pages').addEventListener('click', (e) => { const b = e.target.closest('button[data-pg]'); if (b) { pageNo = Number(b.dataset.pg); draw(); } });
+$$('#rt-detail .rt-ranges button').forEach((b) => b.addEventListener('click', () => { ovRange = b.dataset.r; draw(); }));
+$('.rt-open-cp').addEventListener('click', () => { showPage('company'); window.scrollTo(0, 0); });
+$$('.rt-calc input').forEach((el) => el.addEventListener('input', () => draw()));
+$$('.rt-nav button').forEach((b) => b.addEventListener('click', () => {
+  if (b.dataset.page) { showPage(b.dataset.page); return; }
+  if (page !== 'overview') showPage('overview');
+  const t = document.getElementById(b.dataset.jump);
+  if (t) t.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}));
+
+function fillSelect(sel, allLabel, values, current, label) {
+  const want = current ?? '';
+  sel.replaceChildren(new Option(allLabel, ''), ...values.map((v) => new Option(label ? label(v) : v, v)));
+  sel.value = values.includes(want) ? want : '';
+}
+
+// ---------- Selection ----------
+function selectRows(p) {
+  const src = dash.data('companies');
+  const ok = src.status === 'ok';
+  const all = ok ? src.data : [];
+  const mineOn = p.mine !== false;
+  const universe = all.filter((r) => !mineOn || r.my_list === 'Yes');
+  const q = (p.q || '').toLowerCase();
+  const inRange = (v, lo, hi) => (lo == null && hi == null) || (typeof v === 'number' && (lo == null || v >= lo) && (hi == null || v <= hi));
+  const filtered = universe.filter((r) =>
+    (!p.sector || r.sector === p.sector) &&
+    (!p.sub || r.sub_industry === p.sub) &&
+    inRange(typeof r.from_high === 'number' ? -r.from_high * 100 : null, p.dd_min, p.dd_max) &&
+    inRange(typeof r.from_low === 'number' ? r.from_low * 100 : null, p.up_min, p.up_max) &&
+    inRange(typeof r.jump_share === 'number' ? r.jump_share * 100 : null, null, p.share_max) &&
+    inRange(typeof r.runup_weeks === 'number' ? r.runup_weeks : null, p.weeks_min, null) &&
+    (!p.health || (p.health === 'ok' ? r.health === 'OK' : r.health !== 'გაფრთხილება')) &&
+    (!q || (r.Symbol + ' ' + r.Security).toLowerCase().includes(q)));
+  const cmp = (a, b) => {
+    const va = a[sort.f], vb = b[sort.f];
+    let c;
+    if (NUM_FIELDS.has(sort.f)) {
+      if (typeof va !== 'number' && typeof vb !== 'number') c = 0;
+      else if (typeof va !== 'number') return 1;
+      else if (typeof vb !== 'number') return -1;
+      else c = sort.dir * (va - vb);
+    } else c = sort.dir * String(va).localeCompare(String(vb), 'en', { numeric: true });
+    if (c !== 0) return c;
+    return (a.from_high ?? 0) - (b.from_high ?? 0);
+  };
+  filtered.sort(cmp);
+  const picked = filtered.find((r) => r.Symbol === p.pick) || all.find((r) => r.Symbol === p.pick) || filtered[0];
+  return { src, ok, all, universe, filtered, picked, mineOn };
+}
+
+// ---------- Charts ----------
+function donut(el, legendEl, rows, p) {
+  el.replaceChildren(); legendEl.replaceChildren();
+  const counts = d3.rollups(rows, (v) => v.length, (r) => r.sector || OUTSIDE).sort((a, b) => b[1] - a[1]);
+  if (!counts.length) { note(el, '—'); return; }
+  const top = counts.slice(0, 7);
+  const rest = counts.slice(7).reduce((a, d) => a + d[1], 0);
+  const data = rest ? [...top, ['სხვა', rest]] : top;
+  const total = rows.length;
+  const size = 150, r0 = 46, r1 = 72;
+  const svg = d3.select(el).append('svg').attr('width', size).attr('height', size).attr('viewBox', `0 0 ${size} ${size}`).attr('role', 'img').attr('aria-label', 'სექტორების განაწილება');
+  const g = svg.append('g').attr('transform', `translate(${size / 2},${size / 2})`);
+  const pie = d3.pie().value((d) => d[1]).sort(null).padAngle(0.012);
+  const arc = d3.arc().innerRadius(r0).outerRadius(r1);
+  const color = (i) => SECTOR_COLORS[i % SECTOR_COLORS.length];
+  const pickable = (name) => name !== 'სხვა' && name !== OUTSIDE;
+  g.selectAll('path').data(pie(data)).join('path').attr('d', arc).attr('fill', (d, i) => color(i))
+    .attr('opacity', (d) => (!p.sector || d.data[0] === p.sector ? 1 : 0.35)).style('cursor', 'pointer')
+    .on('click', (ev, d) => { if (pickable(d.data[0])) dash.setParams({ sector: p.sector === d.data[0] ? null : d.data[0], sub: null, pick: null }); });
+  g.append('text').attr('text-anchor', 'middle').attr('dy', '-0.1em').attr('fill', '#e7edf6').style('font-size', '22px').style('font-weight', 700).text(fmt(total));
+  g.append('text').attr('text-anchor', 'middle').attr('dy', '1.3em').attr('class', 'rt-tick').text('კომპანია');
+  data.forEach((d, i) => {
+    const b = document.createElement('button'); b.type = 'button';
+    if (d[0] === p.sector) b.className = 'is-sel';
+    const sw = document.createElement('span'); sw.className = 'sw'; sw.style.background = color(i);
+    const nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = d[0]; nm.title = SECTOR_KA[d[0]] || d[0];
+    const ct = document.createElement('span'); ct.className = 'ct'; ct.textContent = fmt(d[1]);
+    const pc = document.createElement('span'); pc.className = 'pc'; pc.textContent = d3.format('.0%')(d[1] / total);
+    b.append(sw, nm, ct, pc);
+    b.addEventListener('click', () => { if (pickable(d[0])) dash.setParams({ sector: p.sector === d[0] ? null : d[0], sub: null, pick: null }); });
+    legendEl.append(b);
+  });
+}
+
+function histogram(el, values, bins, color, aria) {
+  el.replaceChildren();
+  const tip = tipper(el.closest('.rt-card'));
+  const counts = bins.map(([lo, hi, label]) => ({ label, n: values.filter((v) => v >= lo && v < hi).length }));
+  const w = Math.max(220, el.clientWidth), h = 160, m = { t: 14, r: 4, b: 22, l: 24 };
+  const svg = d3.select(el).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${w} ${h}`).attr('role', 'img').attr('aria-label', aria);
+  const x = d3.scaleBand(counts.map((d) => d.label), [m.l, w - m.r]).padding(0.28);
+  const y = d3.scaleLinear([0, d3.max(counts, (d) => d.n) || 1], [h - m.b, m.t]).nice(4);
+  const yt = y.ticks(4).filter(Number.isInteger);
+  svg.selectAll('line.g').data(yt).join('line').attr('x1', m.l).attr('x2', w - m.r).attr('y1', (t) => y(t)).attr('y2', (t) => y(t)).style('stroke', 'var(--cds-chart-grid)');
+  svg.selectAll('text.yt').data(yt).join('text').attr('class', 'rt-tick').attr('x', m.l - 5).attr('y', (t) => y(t)).attr('dy', '0.35em').attr('text-anchor', 'end').text((t) => fmt(t));
+  const bw = Math.min(34, x.bandwidth());
+  const g = svg.selectAll('g.b').data(counts).join('g')
+    .on('mousemove', (ev, d) => tip.show(ev, [d.label, fmt(d.n) + ' კომპანია']))
+    .on('mouseleave', () => tip.hide());
+  g.append('rect').attr('x', (d) => x(d.label)).attr('width', x.bandwidth()).attr('y', m.t).attr('height', h - m.b - m.t).attr('fill', 'transparent');
+  g.append('rect').attr('x', (d) => x(d.label) + (x.bandwidth() - bw) / 2).attr('width', bw).attr('y', (d) => y(d.n)).attr('height', (d) => Math.max(0, h - m.b - y(d.n))).attr('rx', 3).attr('fill', color);
+  g.append('text').attr('class', 'rt-val').attr('text-anchor', 'middle').attr('x', (d) => x(d.label) + x.bandwidth() / 2).attr('y', (d) => y(d.n) - 4).text((d) => (d.n ? fmt(d.n) : ''));
+  svg.selectAll('text.xt').data(counts).join('text').attr('class', 'rt-tick').attr('text-anchor', 'middle').attr('x', (d) => x(d.label) + x.bandwidth() / 2).attr('y', h - 6).text((d) => d.label);
+}
+
+function priceChart(el, hist, r, months, minH) {
+  el.replaceChildren();
+  const tip = tipper(el.closest('.rt-card'));
+  const parse = d3.utcParse('%Y-%m-%d');
+  const all = hist.map((d) => ({ date: parse(d.date), ds: d.date, close: d.close })).filter((d) => d.date);
+  if (all.length < 2) { note(el, 'ფასების ისტორია ამ კომპანიაზე არ არის.'); return; }
+  const last = all[all.length - 1].date;
+  const from = d3.utcMonth.offset(last, -months);
+  const pts = all.filter((d) => d.date >= from);
+  if (pts.length < 2) { note(el, 'ამ პერიოდში მონაცემი არ არის.'); return; }
+  const w = Math.max(260, el.clientWidth);
+  const h = Math.max(minH, Math.min(420, w * 0.42));
+  const up = pts[pts.length - 1].close >= pts[0].close;
+  const col = up ? GREEN : RED;
+  const svg = d3.select(el).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${w} ${h}`).attr('role', 'img').attr('aria-label', 'ფასის გრაფიკი');
+  const y = d3.scaleLinear(d3.extent(pts, (d) => d.close), [h - 24, 12]).nice(5);
+  const yTicks = y.ticks(5);
+  const fy = (v) => '$' + d3.format(',.0f')(v);
+  const meas = svg.append('g');
+  const lw = d3.max(yTicks, (t) => meas.append('text').attr('class', 'rt-tick').text(fy(t)).node().getComputedTextLength()) || 30;
+  meas.remove();
+  const m = { t: 12, r: lw + 8, b: 24, l: 4 };
+  const x = d3.scaleUtc(d3.extent(pts, (d) => d.date), [m.l, w - m.r]);
+  svg.selectAll('line.gy').data(yTicks).join('line').attr('x1', m.l).attr('x2', w - m.r).attr('y1', (t) => y(t)).attr('y2', (t) => y(t)).style('stroke', 'var(--cds-chart-grid)');
+  svg.selectAll('text.ty').data(yTicks).join('text').attr('class', 'rt-tick').attr('x', w - m.r + 6).attr('y', (t) => y(t)).attr('dy', '0.35em').text(fy);
+  const fx = months <= 3 ? d3.utcFormat('%b %-d') : months <= 12 ? d3.utcFormat('%b') : d3.utcFormat('%b %y');
+  svg.selectAll('text.tx').data(x.ticks(w < 420 ? 4 : 6)).join('text').attr('class', 'rt-tick').attr('x', (t) => x(t)).attr('y', h - 6).attr('text-anchor', 'middle').text(fx);
+  const hiIdx = r.high_date ? all.findIndex((d) => d.ds === r.high_date) : -1;
+  if (hiIdx >= 0 && typeof r.runup_days === 'number') {
+    const loIdx = Math.max(0, hiIdx - r.runup_days);
+    const x0 = Math.max(x(all[loIdx].date), m.l), x1 = Math.min(x(all[hiIdx].date), w - m.r);
+    if (x1 > x0) svg.append('rect').attr('x', x0).attr('y', m.t).attr('width', x1 - x0).attr('height', h - m.b - m.t).style('fill', '#3a4a63').style('opacity', 0.22);
+  }
+  const gid = 'grad' + Math.random().toString(36).slice(2, 8);
+  const lg = svg.append('defs').append('linearGradient').attr('id', gid).attr('x1', 0).attr('x2', 0).attr('y1', 0).attr('y2', 1);
+  [[0, 0.32], [0.5, 0.1], [1, 0]].forEach(([o, a]) => lg.append('stop').attr('offset', o).style('stop-color', col).style('stop-opacity', a));
+  svg.append('path').datum(pts).attr('d', d3.area().x((d) => x(d.date)).y0(h - m.b).y1((d) => y(d.close))).attr('fill', `url(#${gid})`);
+  svg.append('path').datum(pts).attr('d', d3.line().x((d) => x(d.date)).y((d) => y(d.close))).attr('fill', 'none').style('stroke', col).style('stroke-width', 1.8).style('stroke-linejoin', 'round');
+  const inView = (d) => d && d.date >= pts[0].date;
+  const hiPt = hiIdx >= 0 ? all[hiIdx] : null;
+  if (inView(hiPt)) svg.append('path').attr('d', d3.symbol(d3.symbolTriangle, 60)()).attr('transform', `translate(${x(hiPt.date)},${y(hiPt.close) - 8})`).style('fill', '#e7edf6');
+  const jPt = r.max_day_date ? all.find((d) => d.ds === r.max_day_date) : null;
+  if (inView(jPt)) svg.append('circle').attr('cx', x(jPt.date)).attr('cy', y(jPt.close)).attr('r', 4.5).style('fill', '#f5a524').style('stroke', '#0f1828').style('stroke-width', 2);
+  const rule = svg.append('line').attr('y1', m.t).attr('y2', h - m.b).style('stroke', '#2a3a52').attr('visibility', 'hidden');
+  const dot = svg.append('circle').attr('r', 4).style('fill', col).style('stroke', '#0f1828').style('stroke-width', 2).attr('visibility', 'hidden');
+  const bis = d3.bisector((d) => d.date).center;
+  const fd = d3.utcFormat('%Y-%m-%d');
+  svg.append('rect').attr('x', m.l).attr('y', m.t).attr('width', w - m.l - m.r).attr('height', h - m.t - m.b).attr('fill', 'transparent')
+    .on('mousemove', (ev) => {
+      const [mx] = d3.pointer(ev);
+      const d = pts[bis(pts, x.invert(mx))];
+      rule.attr('x1', x(d.date)).attr('x2', x(d.date)).attr('visibility', 'visible');
+      dot.attr('cx', x(d.date)).attr('cy', y(d.close)).attr('visibility', 'visible');
+      const extra = jPt && d.ds === jPt.ds ? ['უდიდესი დღე: ' + fPct(r.max_day_gain)] : hiPt && d.ds === hiPt.ds ? ['52-კვ. მაქსიმუმი (დახურვით)'] : [];
+      tip.show(ev, [fd(d.date), fPrice(d.close) + ' · ' + fPct(d.close / pts[0].close - 1), ...extra]);
+    })
+    .on('mouseleave', () => { rule.attr('visibility', 'hidden'); dot.attr('visibility', 'hidden'); tip.hide(); });
+}
+
+// ---------- Overview ----------
+function drawOverview(p, st) {
+  const { ok, all, universe, filtered, picked, mineOn } = st;
+
+  // Controls
+  $$('.rt-num[data-p]', side).forEach((el) => { if (el !== document.activeElement) el.value = p[el.dataset.p] ?? ''; });
+  $$('.rt-rng[data-p]', side).forEach((el) => { el.value = p[el.dataset.p] ?? (el.dataset.p === 'up_max' ? 200 : 0); });
+  $('.rt-sw[data-sw="gradual"]', side).checked = p.share_max != null || p.weeks_min != null;
+  $('.rt-sw[data-sw="health"]', side).checked = !!p.health;
+  const nd = $('.rt-sw[data-sw="nodata"]', side); nd.checked = p.health === 'ok_nodata'; nd.disabled = !p.health;
+  $('.rt-sw[data-sw="mine"]', side).checked = mineOn;
+  const spRows = all.filter((r) => r.in_sp500 === 'Yes');
+  fillSelect($('.rt-sector', side), 'ყველა', [...new Set(spRows.map((r) => r.sector))].sort(), p.sector, (s) => s + (SECTOR_KA[s] ? ' — ' + SECTOR_KA[s] : ''));
+  fillSelect($('.rt-subind', side), 'ყველა', [...new Set(spRows.filter((r) => !p.sector || r.sector === p.sector).map((r) => r.sub_industry))].sort(), p.sub);
+  const sInput = $('.rt-search'); if (sInput !== document.activeElement) sInput.value = p.q ?? '';
+
+  // KPIs
+  const pr = dash.data('prices');
+  const idx = pr.status === 'ok' ? pr.data.find((r) => r.Symbol === 'INDEXSP:.INX') : null;
+  $$('.kx').forEach((el) => {
+    const v = idx ? idx[el.dataset.field] : null;
+    el.textContent = fmtVal(el.dataset.fmt, v);
+    if (el.dataset.fmt === 'pct' && typeof v === 'number') { el.classList.toggle('rt-up', v > 0); el.classList.toggle('rt-down', v < 0); }
+  });
+  const ks = $('.rt-kspark'); ks.replaceChildren();
+  if (idx) { const vals = parseSpark(idx.spark); ks.append(sparkSvg(vals, Math.max(80, ks.clientWidth), 42, vals.length && vals[vals.length - 1] >= vals[0] ? GREEN : RED, true)); }
+  const mean = (arr) => (arr.length ? d3.mean(arr) : null);
+  $('.k-univ').textContent = ok ? fmt(universe.length) : '—';
+  $('.k-univ-l').textContent = mineOn ? 'ჩემი სია' : 'S&P 500 და ჩემი სია';
+  $('.k-pass').textContent = ok ? fmt(filtered.length) : '—';
+  $('.k-pass-l').textContent = ok && universe.length ? d3.format('.1%')(filtered.length / universe.length) + ' სამყაროდან' : '—';
+  const dd = mean(filtered.map((r) => r.from_high).filter((v) => typeof v === 'number'));
+  const upv = mean(filtered.map((r) => r.from_low).filter((v) => typeof v === 'number'));
+  $('.k-dd').textContent = dd == null ? '—' : d3.format('.1%')(-dd);
+  $('.k-up').textContent = upv == null ? '—' : d3.format('.1%')(upv);
+  const secTop = d3.rollups(filtered, (v) => v.length, (r) => r.sector || OUTSIDE).sort((a, b) => b[1] - a[1])[0];
+  $('.k-sec').textContent = secTop ? secTop[0] : '—';
+  $('.k-sec-l').textContent = secTop ? fmt(secTop[1]) + ' კომპანია' : '—';
+
+  // Charts
+  donut($('.rt-donut'), $('.rt-legend'), filtered, p);
+  histogram($('#rt-hist-dd .rt-chart'), filtered.map((r) => r.from_high).filter((v) => typeof v === 'number').map((v) => -v * 100),
+    [[0, 10, '0–10%'], [10, 20, '10–20%'], [20, 30, '20–30%'], [30, 40, '30–40%'], [40, 50, '40–50%'], [50, 1e9, '50%+']], RED, 'ვარდნა მაქსიმუმიდან');
+  histogram($('#rt-hist-up .rt-chart'), filtered.map((r) => r.from_low).filter((v) => typeof v === 'number').map((v) => v * 100),
+    [[0, 10, '0–10%'], [10, 25, '10–25%'], [25, 50, '25–50%'], [50, 100, '50–100%'], [100, 1e9, '100%+']], GREEN, 'ზრდა მინიმუმიდან');
+
+  // Table with pages
+  const sig = JSON.stringify([p.dd_min, p.dd_max, p.up_min, p.up_max, p.share_max, p.weeks_min, p.health, p.mine, p.sector, p.sub, p.q, sort]);
+  if (sig !== filterSig) { filterSig = sig; pageNo = 1; if (picked) { const i = filtered.findIndex((r) => r.Symbol === picked.Symbol); if (i >= 0) pageNo = Math.floor(i / PAGE_SIZE) + 1; } }
+  const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  pageNo = Math.min(Math.max(1, pageNo), pages);
+  const shown = filtered.slice((pageNo - 1) * PAGE_SIZE, pageNo * PAGE_SIZE);
+  $('.rt-count').textContent = ok ? fmt(filtered.length) : '—';
+  $$('#rt-table th').forEach((th) => { if (th.dataset.field === sort.f) th.setAttribute('aria-sort', sort.dir > 0 ? 'ascending' : 'descending'); else th.removeAttribute('aria-sort'); });
+  const fields = $$('#rt-table th').map((th) => th.dataset.field);
+  $('#rt-table tbody').replaceChildren(...shown.map((r) => {
+    const tr = document.createElement('tr');
+    tr.dataset.key = r.Symbol;
+    if (picked && r.Symbol === picked.Symbol) tr.classList.add('is-picked');
+    for (const f of fields) {
+      const td = document.createElement('td');
+      const v = r[f];
+      if (f === 'Security') { td.className = 'co'; td.textContent = v; td.title = v; }
+      else if (f === 'sector') { td.className = 'rt-sect rt-hide-sm'; td.textContent = v || OUTSIDE; }
+      else if (f === 'price') { td.className = 'n'; td.textContent = fPrice(v); }
+      else if (f === 'high_52w' || f === 'low_52w') { td.className = 'n rt-hide-sm rt-wide'; td.textContent = fPrice(v); }
+      else if (f === 'from_high') { td.className = 'n rt-down'; td.textContent = fPct(v); }
+      else if (f === 'from_low') { td.className = 'n rt-up'; td.textContent = fPct(v); }
+      else if (f === 'score') { td.className = 'n'; const b = document.createElement('span'); b.className = 'rt-badge rt-b' + v; b.textContent = v + '/4'; td.append(b); }
+      else if (f === 'ret_1y') {
+        td.className = 'n';
+        const wrap = document.createElement('span'); wrap.className = 'rt-trend';
+        wrap.append(sparkSvg(parseSpark(r.spark), 56, 20, typeof v === 'number' && v < 0 ? RED : GREEN, false));
+        const t = document.createElement('span'); t.textContent = fPct(v); t.className = typeof v === 'number' && v < 0 ? 'rt-down' : 'rt-up';
+        wrap.append(t); td.append(wrap);
+      } else td.textContent = v ?? '';
+      tr.append(td);
+    }
+    return tr;
+  }));
+  const nums = [];
+  for (let i = 1; i <= pages; i++) if (i === 1 || i === pages || Math.abs(i - pageNo) <= 2) nums.push(i);
+  $('.rt-pages').replaceChildren(...nums.flatMap((n, k) => {
+    const out = [];
+    if (k > 0 && n - nums[k - 1] > 1) { const s = document.createElement('span'); s.className = 'rt-muted'; s.textContent = '…'; out.push(s); }
+    const b = document.createElement('button'); b.type = 'button'; b.dataset.pg = n; b.textContent = n; if (n === pageNo) b.setAttribute('aria-current', 'true');
+    out.push(b); return out;
+  }));
+  $('.pg-prev').disabled = pageNo <= 1; $('.pg-next').disabled = pageNo >= pages;
+  $('.rt-showing').textContent = filtered.length ? 'ნაჩვენებია ' + ((pageNo - 1) * PAGE_SIZE + 1) + '–' + Math.min(pageNo * PAGE_SIZE, filtered.length) + ' / ' + fmt(filtered.length) : '';
+
+  // Detail panel
+  const det = $('#rt-detail');
+  $('.rt-d-empty', det).hidden = !(ok && !picked);
+  $('.rt-d-body', det).hidden = !picked;
+  fillMarks(det, '.ov-d', 'companies', picked, picked ? 'Symbol=' + enc(picked.Symbol) : null);
+  if (picked) {
+    $('.rt-star', det).hidden = picked.my_list !== 'Yes';
+    $$('.rt-ranges button', det).forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.r === ovRange)));
+    const keys = ['chk_drop', 'chk_rise', 'chk_gradual', 'chk_fin'];
+    const order = keys.map((k) => picked[k]).sort((a, b) => (a === 'Yes' ? 0 : a === 'No' ? 2 : 1) - (b === 'Yes' ? 0 : b === 'No' ? 2 : 1));
+    $$('.rt-segs span', det).forEach((s, i) => { s.className = order[i] === 'Yes' ? 'on' : order[i] === 'No' ? 'off' : ''; });
+    $$('.ck', det).forEach((i) => {
+      const v = picked[i.dataset.k];
+      i.textContent = v === 'Yes' ? '✓' : v === 'No' ? '✗' : '–';
+      i.style.color = v === 'Yes' ? GREEN : v === 'No' ? RED : '#8a97ab';
+      i.title = v === 'Yes' ? 'კი' : v === 'No' ? 'არა' : 'მონაცემი არ არის';
+    });
+    const sv = $('.rt-score-v', det); sv.style.color = picked.score >= 4 ? GREEN : picked.score === 3 ? '#a3d65c' : picked.score === 2 ? '#f5a524' : RED;
+    const box = $('.rt-d-chart', det);
+    const hst = historyFor(st);
+    if (hst.fresh) priceChart(box, hst.data, picked, { '1m': 1, '3m': 3, '6m': 6, '1y': 12, '2y': 24 }[ovRange], 190);
+    else if (hst.status === 'error') fail(box);
+    else if (hst.none) note(box, 'ფასების ისტორია ამ კომპანიაზე არ არის.');
+    else note(box, 'იტვირთება…');
+  }
+
+  if (typeof dash.watchSymbols === 'function') dash.watchSymbols([...(picked ? [picked.Symbol] : []), ...shown.map((r) => r.Symbol)]);
+
+  // Top 5 (from the filtered list) and watchlist with a full score
+  const top5 = [...filtered].sort((a, b) => b.score - a.score || (a.from_high ?? 0) - (b.from_high ?? 0)).slice(0, 5);
+  miniRows($('#rt-top5 tbody'), top5, picked);
+  const w4 = all.filter((r) => r.my_list === 'Yes' && r.score === 4).sort((a, b) => (a.from_high ?? 0) - (b.from_high ?? 0));
+  $('.w-count').textContent = ok ? fmt(w4.length) : '—';
+  miniRows($('#rt-watch tbody'), w4, picked);
+
+  // Sector performance
+  const sp = dash.data('sector_perf');
+  const perfEl = $('.rt-perf');
+  if (sp.status === 'ok') {
+    const rows = [...sp.data].sort((a, b) => b.ret_1y - a.ret_1y);
+    const mx = d3.max(rows, (r) => Math.abs(r.ret_1y)) || 1;
+    perfEl.replaceChildren(...rows.map((r) => {
+      const row = document.createElement('div'); row.className = 'rt-perf-row'; row.title = (SECTOR_KA[r.sector] || r.sector) + ' · ' + r.companies + ' კომპანია';
+      row.addEventListener('click', () => dash.setParams({ sector: p.sector === r.sector ? null : r.sector, sub: null, pick: null }));
+      const nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = r.sector; if (r.sector === p.sector) nm.style.fontWeight = 700;
+      const bar = document.createElement('span'); bar.className = 'rt-perf-bar';
+      const fill = document.createElement('span');
+      const wpc = Math.abs(r.ret_1y) / mx * 50;
+      fill.style.width = wpc + '%'; fill.style.left = r.ret_1y >= 0 ? '50%' : (50 - wpc) + '%'; fill.style.background = r.ret_1y >= 0 ? GREEN : RED;
+      bar.append(fill);
+      const v = document.createElement('span'); v.style.textAlign = 'right'; v.className = r.ret_1y >= 0 ? 'rt-up' : 'rt-down'; v.textContent = fPct(r.ret_1y);
+      row.append(nm, bar, v); return row;
+    }));
+  } else if (sp.status === 'error') fail(perfEl);
+
+  // Risk calculator (works from the inputs and the picked company's price)
+  const acc = Number($('.rc-acc').value) || 0, risk = Number($('.rc-risk').value) || 0, stop = Number($('.rc-stop').value) || 0;
+  const pos = stop > 0 ? acc * (risk / 100) / (stop / 100) : null;
+  $('.rc-pos').textContent = pos == null ? '—' : '$' + d3.format(',.0f')(pos);
+  $('.rc-loss').textContent = '$' + d3.format(',.0f')(acc * risk / 100) + ' (' + d3.format('.1f')(risk) + '%)';
+  $('.rc-sh-l').textContent = 'აქციების რაოდენობა' + (picked ? ' (' + picked.Symbol + ', ' + fPrice(picked.price) + ')' : '');
+  $('.rc-sh').textContent = pos != null && picked && typeof picked.price === 'number' && picked.price > 0 ? fmt(Math.floor(pos / picked.price)) : '—';
+}
+
+function miniRows(tb, rows, picked) {
+  tb.replaceChildren(...rows.map((r) => {
+    const tr = document.createElement('tr'); tr.dataset.key = r.Symbol;
+    if (picked && picked.Symbol === r.Symbol) tr.style.background = '#15263f';
+    const a = document.createElement('td'); a.textContent = r.Symbol; a.style.fontWeight = 700;
+    const b = document.createElement('td'); b.className = 'co'; b.textContent = r.Security; b.title = r.Security;
+    const c = document.createElement('td'); c.className = 'n rt-down'; c.textContent = fPct(r.from_high);
+    const d = document.createElement('td'); d.className = 'n'; const s = document.createElement('span'); s.className = 'rt-badge rt-b' + r.score; s.textContent = r.score + '/4'; d.append(s);
+    tr.append(a, b, c, d); return tr;
+  }));
+}
+
+// ---------- History of the picked company ----------
+function historyFor(st) {
+  const h = dash.data('history');
+  const pr = dash.data('prices');
+  const rows = pr.status === 'ok' ? pr.data : [];
+  const ri = st.picked ? rows.findIndex((r) => r.Symbol === st.picked.Symbol) : -1;
+  const want = ri >= 0 ? `Prices!A${ri + 2}:O${ri + 2}` : null;
+  const histSym = ((h.meta || []).find((mm) => mm.label === 'Ticker') || {}).value;
+  const fresh = !!st.picked && h.status === 'ok' && histSym === st.picked.Symbol && dash.params().hist_range === want;
+  return { fresh, data: fresh ? h.data : [], status: h.status, none: pr.status === 'ok' && !want, want };
+}
+
+// ---------- Company page ----------
+function showPage(name) {
+  page = name === 'company' ? 'company' : 'overview';
+  $('#overview').hidden = page !== 'overview';
+  $('#company').hidden = page !== 'company';
+  $$('.rt-nav button[data-page]').forEach((t) => t.setAttribute('aria-selected', String(t.dataset.page === page)));
+  if (page === 'company' && !cpMounted) mountCompany();
+  dash.setLink(page);
+  draw();
+}
+
+function mountCompany() {
+  const root = $('#company');
+  root.append($('#tpl-company').content.cloneNode(true));
+  cpMounted = true;
+  const step = (d) => {
+    if (!lastSt || !lastSt.filtered.length) return;
+    const i = lastSt.picked ? lastSt.filtered.findIndex((r) => r.Symbol === lastSt.picked.Symbol) : -1;
+    const n = lastSt.filtered.length;
+    dash.setParams({ pick: lastSt.filtered[((i < 0 ? 0 : i + d) % n + n) % n].Symbol });
+  };
+  $('.cp-prev', root).addEventListener('click', () => step(-1));
+  $('.cp-next', root).addEventListener('click', () => step(1));
+  const sel = $('.cp-select', root);
+  sel.addEventListener('change', () => { if (sel.value) dash.setParams({ pick: sel.value }); });
+  const find = $('.cp-find', root);
+  find.addEventListener('input', () => { cpQuery = find.value.trim().toLowerCase(); cpSig = ''; draw(); });
+  find.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' || !lastSt) return;
+    const q = find.value.trim().toLowerCase();
+    if (!q) return;
+    const hit = lastSt.all.find((r) => r.Symbol.toLowerCase() === q) || lastSt.filtered.find((r) => (r.Symbol + ' ' + r.Security).toLowerCase().includes(q)) || lastSt.all.find((r) => (r.Symbol + ' ' + r.Security).toLowerCase().includes(q));
+    if (hit) { find.value = ''; cpQuery = ''; cpSig = ''; dash.setParams({ pick: hit.Symbol }); }
+  });
+  $$('.cp-ranges button', root).forEach((b) => b.addEventListener('click', () => { cpRange = b.dataset.r; draw(); }));
+}
+
+function drawCompany(p, st) {
+  if (!cpMounted) return;
+  const { ok, all, filtered, picked } = st;
+  const root = $('#company');
+  $('.cp-empty', root).hidden = !(ok && !picked);
+  $('.cp-body', root).hidden = !picked;
+  const sel = $('.cp-select', root);
+  const match = (r) => !cpQuery || (r.Symbol + ' ' + r.Security).toLowerCase().includes(cpQuery);
+  const inF = new Set(filtered.map((r) => r.Symbol));
+  const g1 = filtered.filter(match);
+  const g2 = all.filter((r) => !inF.has(r.Symbol) && match(r)).sort((a, b) => a.Symbol.localeCompare(b.Symbol));
+  const sig = [cpQuery, g1.map((r) => r.Symbol).join(','), g2.length, picked ? picked.Symbol : ''].join('|');
+  if (ok && sig !== cpSig && sel !== document.activeElement) {
+    cpSig = sig;
+    const opt = (r) => new Option(r.Symbol + ' — ' + r.Security, r.Symbol);
+    const grp = (label, rows) => { const og = document.createElement('optgroup'); og.label = label; og.append(...rows.map(opt)); return og; };
+    const parts = [];
+    if (picked && !match(picked)) parts.push(opt(picked));
+    if (g1.length) parts.push(grp('ფილტრებში მოხვედრილი (' + g1.length + ')', g1));
+    if (g2.length) parts.push(grp('სხვა კომპანიები (' + g2.length + ')', g2));
+    if (!g1.length && !g2.length) { const o = new Option('ძებნას არაფერი შეესაბამება', ''); o.disabled = true; parts.push(o); }
+    sel.replaceChildren(...parts);
+  }
+  if (picked && sel !== document.activeElement) sel.value = picked.Symbol;
+  const i = picked ? filtered.findIndex((r) => r.Symbol === picked.Symbol) : -1;
+  $('.cp-pos', root).textContent = picked ? (i >= 0 ? (i + 1) + ' / ' + filtered.length + ' ფილტრებში მოხვედრილი კომპანიიდან' : 'ეს კომპანია მიმდინარე ფილტრებში არ ხვდება') : '';
+  if (!picked) return;
+  if (typeof dash.watchSymbols === 'function') dash.watchSymbols([picked.Symbol]);
+  fillMarks(root, '.cp-d', 'companies', picked, 'Symbol=' + enc(picked.Symbol));
+  $('.cp-star', root).hidden = picked.my_list !== 'Yes';
+  $('.cp-hflags', root).textContent = picked.health_flags
+    ? 'გაფრთხილება: ' + picked.health_flags.split(',').map((k) => FLAG_KA[k] || k).join(' · ')
+    : picked.health === 'OK' ? 'კრიტიკული გაუარესება არ ჩანს' + (picked.sector === 'Financials' ? ' (Financials: მოწმდება მხოლოდ შემოსავალი)' : '') : 'SEC-ის მონაცემი არასრულია';
+  const cik = /^\d+$/.test(picked.cik) ? picked.cik : '';
+  const sym = /^[A-Z.]+$/.test(picked.Symbol) ? picked.Symbol : '';
+  const sec = $('.cp-sec', root), gf = $('.cp-gf', root);
+  sec.hidden = !cik; gf.hidden = !sym;
+  if (cik) sec.setAttribute('href', 'https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=' + cik);
+  if (sym) gf.setAttribute('href', 'https://www.google.com/finance/quote/' + sym.replace('.', '-'));
+  $$('.cp-ranges button', root).forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.r === cpRange)));
+  const hst = historyFor(st);
+  const box = $('.cp-chart', root);
+  if (hst.fresh) priceChart(box, hst.data, picked, { '3m': 3, '6m': 6, '1y': 12, '2y': 24 }[cpRange], 300);
+  else if (hst.status === 'error') fail(box);
+  else if (hst.none) note(box, 'ფასების ისტორია ამ კომპანიაზე არ არის.');
+  else note(box, 'იტვირთება…');
+  const hs = dash.data('history_stats');
+  const statRows = hst.fresh && hs.status === 'ok' ? hs.data : [];
+  $('.cp-ret tbody', root).replaceChildren(...statRows.map((r) => {
+    const tr = document.createElement('tr'); tr.dataset.key = r.period;
+    const c1 = document.createElement('td'); c1.textContent = r.period;
+    const c2 = document.createElement('td'); c2.className = 'n ' + (typeof r.change === 'number' ? (r.change < 0 ? 'rt-down' : 'rt-up') : ''); c2.textContent = fPct(r.change);
+    const c3 = document.createElement('td'); c3.className = 'n'; c3.textContent = r.from_date || '—';
+    tr.append(c1, c2, c3); return tr;
+  }));
+  const hr = dash.data('history_risk');
+  fillMarks(root, '.cp-r', 'history_risk', hst.fresh && hr.status === 'ok' && hr.data.length ? hr.data[0] : null, null);
+}
+
+// ---------- Main ----------
+function draw() {
+  const p = dash.params();
+  const st = selectRows(p);
+  lastSt = st;
+  const hst = historyFor(st);
+  if (hst.want && p.hist_range !== hst.want) dash.setParams({ hist_range: hst.want });
+  if (page === 'company') drawCompany(p, st);
+  else drawOverview(p, st);
+}
+
+dash.onData(draw);
+if (location.hash.slice(1) === 'company') showPage('company');
+</script>
+
+</div>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function () { navigator.serviceWorker.register('sw.js').catch(function (e) { console.warn('SW', e); }); });
+}
+</script>
+</body>
+</html>
