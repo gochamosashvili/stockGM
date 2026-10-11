@@ -1,6 +1,6 @@
 // Service worker: keeps the app itself available offline.
 // When you change any file, raise the version number below so phones pick up the update.
-const VERSION = 'stock-v2';
+const VERSION = 'stock-v3';
 const SHELL = [
   './', 'index.html', 'runtime.js', 'config.js', 'manifest.webmanifest', 'vendor/d3.min.js',
   'data/sp500.json', 'data/watchlist.json', 'data/fundamentals.json',
@@ -23,8 +23,8 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(req.url);
   // Only the app's own files; live prices from Google go straight to the network.
   if (req.method !== 'GET' || url.origin !== self.location.origin) return;
-  // Pages and the config: network first, so changes show up; cache when offline.
-  if (req.mode === 'navigate' || url.pathname.endsWith('/config.js')) {
+  // Pages, the config and the SEC file (GitHub refreshes it twice a day): network first; cache when offline.
+  if (req.mode === 'navigate' || url.pathname.endsWith('/config.js') || url.pathname.endsWith('/data/fundamentals.json')) {
     event.respondWith(
       fetch(req).then((res) => {
         const copy = res.clone();

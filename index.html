@@ -549,6 +549,7 @@ dash.loader('fundamentals_live', {
     const rows = values.slice(1).filter((r) => r && r[0]).map((r) => {
       const o = {};
       columns.forEach((c, i) => { const v = idx[i] >= 0 ? r[idx[i]] : ''; o[c] = v == null ? '' : String(v).replace(/,/g, ''); });
+      o.updated = head.indexOf('updated') >= 0 ? String(r[head.indexOf('updated')] || '') : '';
       return o;
     });
     return { columns, rows, meta: [{ label: 'Updated', value: updated }] };
@@ -566,8 +567,10 @@ dash.calc('companies', {
     const yn = (c) => (c == null ? '' : c ? 'Yes' : 'No');
     const px = new Map(prices.map((p) => [p.Symbol, p]));
     const fu = new Map(fundamentals.map((f) => [f.Symbol, f]));
-    // The twice-daily SEC refresh wins wherever it has data; the snapshot fills the rest.
-    for (const f of fundamentals_live || []) {
+    // The newer of the two SEC copies wins wherever it has data; the other fills the rest.
+    const liveAt = ((fundamentals_live || [])[0] || {}).updated || '';
+    const fileAt = (fundamentals[0] || {}).updated || '';
+    for (const f of liveAt >= fileAt ? fundamentals_live || [] : []) {
       if (['rev_fy', 'rev_q', 'ocf_fy', 'debt', 'cash'].some((k) => f[k] !== '' && f[k] != null)) fu.set(f.Symbol, f);
     }
     const mine = new Set(watchlist.map((w) => w.Symbol));

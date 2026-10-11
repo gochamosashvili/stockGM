@@ -88,7 +88,10 @@
 
   function loadFile(id) {
     fetch(FILES[id]).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-      .then(function (rows) { setData(id, { status: 'ok', data: rows }); })
+      .then(function (rows) {
+        if (id === 'fundamentals' && rows[0] && rows[0].updated && (!meta.fund || rows[0].updated > meta.fund)) meta.fund = rows[0].updated;
+        setData(id, { status: 'ok', data: rows });
+      })
       .catch(function (e) { console.error(id, e); setData(id, { status: 'error', data: [] }); });
   }
 
@@ -154,7 +157,7 @@
     var use = function (json) {
       var res = loaders.fundamentals_live.fn({ answer: json });
       var upd = (res.meta || []).filter(function (m) { return m.label === 'Updated'; })[0];
-      meta.fund = upd && upd.value ? upd.value : null;
+      if (upd && upd.value && (!meta.fund || upd.value > meta.fund)) meta.fund = upd.value;
       setData('fundamentals_live', { status: 'ok', data: res.rows });
     };
     var cached = lsGet(LS_CACHE + 'fund');
