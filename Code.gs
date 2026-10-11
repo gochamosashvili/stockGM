@@ -2,13 +2,13 @@
  * Recovery Terminal: Google Apps Script for the STOCK app.
  *
  * 1. doGet: gives the app cells of the "Prices" and "Fundamentals" tabs as JSON.
- * 2. refreshFundamentals: copies data/fundamentals.json from your GitHub Pages site
+ * 2. refreshFundamentals: copies fundamentals.json from your GitHub Pages site
  *    (GitHub refreshes it from SEC twice a day) into the "Fundamentals" tab.
  * 3. setupTriggers: runs refreshFundamentals twice a day (07:00 and 19:00, script time zone).
  */
 const SPREADSHEET_ID = '1X8IkpTcwoSuArteakh-gV4prm7xfIYPdgeTqmvg5R5g';
 
-// Your site's address + /data/fundamentals.json, e.g. 'https://name.github.io/stock/data/fundamentals.json'
+// Your site's address + /fundamentals.json, e.g. 'https://gochamosashvili.github.io/stockGM/fundamentals.json'
 const FUND_URL = '';
 
 const HEADER = ['Symbol', 'rev_fy', 'rev_fy_prev', 'fy_end', 'rev_q', 'rev_q_prev', 'q_end', 'ocf_fy', 'ocf_fy_prev',
