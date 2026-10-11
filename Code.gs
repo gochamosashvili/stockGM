@@ -9,7 +9,7 @@
 const SPREADSHEET_ID = '1X8IkpTcwoSuArteakh-gV4prm7xfIYPdgeTqmvg5R5g';
 
 // Your site's address + /fundamentals.json, e.g. 'https://gochamosashvili.github.io/stockGM/fundamentals.json'
-const FUND_URL = '';
+const FUND_URL = 'https://gochamosashvili.github.io/stockGM/fundamentals.json';
 
 const HEADER = ['Symbol', 'rev_fy', 'rev_fy_prev', 'fy_end', 'rev_q', 'rev_q_prev', 'q_end', 'ocf_fy', 'ocf_fy_prev',
   'ocf_fy_end', 'debt', 'debt_prev', 'cash', 'bs_date', 'updated'];
