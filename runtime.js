@@ -36,7 +36,7 @@
   try { Object.assign(P, JSON.parse(lsGet(LS_PARAMS) || '{}')); } catch (e) { /* ignore */ }
 
   var loaders = {}, calcs = [], subs = [], D = {}, meta = { prices: null, fund: null };
-  var FILES = { sp500: 'data/sp500.json', watchlist: 'data/watchlist.json', fundamentals: 'data/fundamentals.json' };
+  var FILES = { sp500: 'sp500.json', watchlist: 'watchlist.json', fundamentals: 'fundamentals.json' };
 
   // ---------- notify (coalesced) ----------
   var pending = false;
