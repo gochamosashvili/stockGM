@@ -1,6 +1,6 @@
 // Downloads revenue, operating cash flow, debt and cash from SEC EDGAR (XBRL frames)
-// for every company in data/sp500.json and data/watchlist.json, and writes
-// data/fundamentals.json ($ millions). Run by .github/workflows/sec.yml twice a day.
+// for every company in sp500.json and watchlist.json, and writes
+// fundamentals.json ($ millions). Run by .github/workflows/sec.yml twice a day.
 import fs from 'node:fs';
 
 const CONTACT = process.env.SEC_CONTACT || '';
@@ -40,8 +40,8 @@ async function getJson(url) {
 }
 console.log(`User-Agent sent to SEC: ${UA['User-Agent'].replace(/[^@\s]+@/, '***@')}`);
 
-const sp = JSON.parse(fs.readFileSync('data/sp500.json', 'utf8'));
-const wl = JSON.parse(fs.readFileSync('data/watchlist.json', 'utf8'));
+const sp = JSON.parse(fs.readFileSync('sp500.json', 'utf8'));
+const wl = JSON.parse(fs.readFileSync('watchlist.json', 'utf8'));
 const tickers = [...new Set([...sp.map((r) => r.Symbol), ...wl.map((r) => r.Symbol)])];
 const spCik = Object.fromEntries(sp.map((r) => [r.Symbol, Number(r.CIK)]));
 
@@ -127,5 +127,5 @@ const rows = tickers.map((t) => {
 if (filled < tickers.length / 3) { console.error(`Only ${filled} of ${tickers.length} companies got data; file left unchanged.`); process.exit(1); }
 const updated = now.toISOString().slice(0, 16) + 'Z';
 if (rows.length) rows[0].updated = updated;
-fs.writeFileSync('data/fundamentals.json', JSON.stringify(rows));
+fs.writeFileSync('fundamentals.json', JSON.stringify(rows));
 console.log(`Fundamentals updated: ${filled} of ${tickers.length} companies, ${updated}`);
